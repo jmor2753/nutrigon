@@ -8,6 +8,7 @@ inst/doc/
 .RData
 .Ruserdata
 *.Rproj
+README.html
 
 # Package check output
 *.Rcheck/
