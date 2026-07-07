@@ -64,10 +64,7 @@ clustering, and overlay-plot example built on Zanco et al. (2025).
 
 ## Citation
 
-> Morimoto, J. (in review). Formalising statistical inference for
-> Nutrigonometry: bootstrap confidence intervals for the angular
-> separation between nutritional optima. *Methods in Ecology and
-> Evolution*.
+> Morimoto, J. (in review). Bootstrap inference for angular separation between constrained optima of nutritional ecology response surfaces. *Environmental and Ecological Statistics*.
 
 And the original Nutrigonometry paper:
 
