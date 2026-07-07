@@ -73,13 +73,6 @@ And the original Nutrigonometry paper:
 > triangles to quantify nutritional trade-offs in performance landscapes.
 > *The American Naturalist*, 201(5), 725-740.
 
-## License
-
-MIT
-
-## Author
-
-Juliano Morimoto ([ORCID: 0000-0003-3561-1920](https://orcid.org/0000-0003-3561-1920))
 
 ## License
 
