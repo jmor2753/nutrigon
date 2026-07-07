@@ -37,6 +37,18 @@ nutrigon_build_grid <- function(n         = 20,
                                  seed      = 42,
                                  theta_min = 5.71,
                                  theta_max = 84.29) {
+  if (exists(".Random.seed", envir = .GlobalEnv)) {
+    old_seed <- get(".Random.seed", envir = .GlobalEnv)
+    on.exit({
+      assign(".Random.seed", old_seed, envir = .GlobalEnv)
+    }, add = TRUE)
+  } else {
+    on.exit({
+      if (exists(".Random.seed", envir = .GlobalEnv)) {
+        rm(".Random.seed", envir = .GlobalEnv)
+      }
+    }, add = TRUE)
+  }
   set.seed(seed)
   INTAKE_SD   <- 8
   RESPONSE_SD <- 2

@@ -77,19 +77,17 @@ published result: theta = 20.51 degrees, 95% CI [10.99, 26.14].
 
 `nutrigon_check()` compares this result's risk-factor profile (curvature
 elongation, distance to the angular boundary of the design, and angular
-separation) against the pre-built validation grid `nutrigon_validation_grid`
-(`seed = 2025`), which contains 1000 simulated configurations with known
-ground-truth bootstrap coverage.
+separation) against a validation grid of simulated configurations with
+known ground-truth bootstrap coverage. By default it uses the grid shipped
+with the package, `nutrigon_validation_grid` (`seed = 2025`, 1000
+configurations) -- this is fast, since no simulation is run:
 
 ```{r reliability}
-data(nutrigon_validation_grid)
-
 check_lee <- nutrigon_check(
-  result          = result_lee,
-  elong1          = nutrigon_elongation(fit_lifespan),
-  elong2          = nutrigon_elongation(fit_eggs),
-  k               = 10,
-  validation_grid = nutrigon_validation_grid
+  result = result_lee,
+  elong1 = nutrigon_elongation(fit_lifespan),
+  elong2 = nutrigon_elongation(fit_eggs),
+  k      = 10
 )
 
 cat(check_lee$flag, "\n")
@@ -141,6 +139,6 @@ Taylor, P.W., Soran, N. & Raubenheimer, D. (2008). Lifespan and
 reproduction in *Drosophila*: new insights from nutritional geometry.
 *PNAS*, 105(7), 2498-2503.
 
-Morimoto, J. (in review). Formalising statistical inference for
-Nutrigonometry: bootstrap confidence intervals for the angular separation
-between nutritional optima. *Methods in Ecology and Evolution*.
+Morimoto, J. (in review). Bootstrap inference for angular separation
+between constrained optima of nutritional ecology response surfaces.
+*Environmental and Ecological Statistics*.

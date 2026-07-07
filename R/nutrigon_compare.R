@@ -58,7 +58,21 @@ nutrigon_compare <- function(data1, x1_col, y1_col, z1_col,
                               n_reps_cloud   = 5,
                               seed           = NULL) {
 
-  if (!is.null(seed)) set.seed(seed)
+  if (!is.null(seed)) {
+    if (exists(".Random.seed", envir = .GlobalEnv)) {
+      old_seed <- get(".Random.seed", envir = .GlobalEnv)
+      on.exit({
+        assign(".Random.seed", old_seed, envir = .GlobalEnv)
+      }, add = TRUE)
+    } else {
+      on.exit({
+        if (exists(".Random.seed", envir = .GlobalEnv)) {
+          rm(".Random.seed", envir = .GlobalEnv)
+        }
+      }, add = TRUE)
+    }
+    set.seed(seed)
+  }
 
   # Point estimates
   fit1 <- .fit_quadratic(data1, x1_col, y1_col, z1_col)

@@ -3,7 +3,7 @@
 \alias{nutrigon_check}
 \title{Per-result reliability diagnostic}
 \usage{
-nutrigon_check(result, elong1, elong2, k = 10, validation_grid = NULL,
+nutrigon_check(result, elong1, elong2, k = 10, validation_grid = "default",
   theta_min = 5.71, theta_max = 84.29)
 }
 \arguments{
@@ -15,15 +15,24 @@ nutrigon_check(result, elong1, elong2, k = 10, validation_grid = NULL,
 
 \item{k}{Number of nearest validation-grid neighbours (default 10).}
 
-\item{validation_grid}{A pre-built grid from \code{\link{nutrigon_build_grid}}.
-If \code{NULL}, a small grid is built automatically (takes approximately
-1-3 minutes). The package ships a pre-built grid,
-\code{nutrigon_validation_grid} (\code{seed = 2025}, 1000 configurations),
-which can be passed here directly: \code{data(nutrigon_validation_grid)}.}
+\item{validation_grid}{A pre-built grid, typically from
+\code{\link{nutrigon_build_grid}}. Defaults to \code{"default"}, which
+loads and uses the grid shipped with the package,
+\code{nutrigon_validation_grid} (\code{seed = 2025}, 1000 configurations,
+\code{B_boot = 100}) -- this is fast (no simulation is run) and is the
+right choice for almost all users. Pass \code{NULL} to build a fresh grid
+from scratch instead (slow, several minutes; only needed if your design
+deviates from the standard 5-rail \code{[5.71, 84.29]} angular support
+the shipped grid was built under, or you want a custom
+\code{n}/\code{n_sim}/\code{B_boot}). Alternatively pass your own
+pre-built grid object (e.g. from a prior \code{\link{nutrigon_build_grid}}
+call) to reuse it directly.}
 
 \item{theta_min, theta_max}{Angular support of the design (degrees).
 Defaults to the standard 5-rail design used in validation,
-\code{[5.71, 84.29]}.}
+\code{[5.71, 84.29]}. Only used when a fresh grid is built (i.e. when
+\code{validation_grid = NULL}); ignored when using the shipped or a
+supplied grid.}
 }
 \value{
 A list with:
@@ -48,7 +57,6 @@ This is a \strong{diagnostic}, not a correction: it does not change the
 confidence interval returned by \code{\link{nutrigon_compare}}.
 }
 \examples{
-\donttest{
 data(lee_drosophila)
 fit_lifespan <- nutrigon_fit(lee_drosophila, "protein_eaten", "carb_eaten",
                               "lifespan", design_id_col = "treatment")
@@ -60,13 +68,11 @@ result <- nutrigon_compare(
   design_id_col1 = "treatment", design_id_col2 = "treatment",
   paired = TRUE, B = 50, seed = 1
 )
-data(nutrigon_validation_grid)
+# Uses the shipped validation grid by default -- fast, no simulation.
 check <- nutrigon_check(result,
                          elong1 = nutrigon_elongation(fit_lifespan),
-                         elong2 = nutrigon_elongation(fit_eggs),
-                         validation_grid = nutrigon_validation_grid)
+                         elong2 = nutrigon_elongation(fit_eggs))
 check$flag
-}
 }
 \seealso{
 \code{\link{nutrigon_compare}}, \code{\link{nutrigon_build_grid}},

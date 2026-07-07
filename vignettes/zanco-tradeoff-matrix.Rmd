@@ -299,6 +299,6 @@ Nutritional optima for life-history traits vary with temperature and
 across locally-adapted populations. *Journal of Insect Physiology*, 163,
 104815.
 
-Morimoto, J. (in review). Formalising statistical inference for
-Nutrigonometry: bootstrap confidence intervals for the angular separation
-between nutritional optima. *Methods in Ecology and Evolution*.
+Morimoto, J. (in review). Bootstrap inference for angular separation
+between constrained optima of nutritional ecology response surfaces.
+*Environmental and Ecological Statistics*.

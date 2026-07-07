@@ -12,7 +12,8 @@ angular separation (theta) between the nutritional optima of two traits,
 with bootstrap confidence intervals. It also provides a simulation-based
 per-result reliability diagnostic that flags whether a given result
 resembles configurations that validated well or poorly in extensive
-simulation (see Morimoto, in review).
+simulation (see Morimoto, in review, *Environmental and Ecological
+Statistics*).
 
 ## Installation
 
@@ -40,11 +41,9 @@ result <- nutrigon_compare(
 )
 print(result)
 
-data(nutrigon_validation_grid)
 check <- nutrigon_check(result,
                          elong1 = nutrigon_elongation(fit1),
-                         elong2 = nutrigon_elongation(fit2),
-                         validation_grid = nutrigon_validation_grid)
+                         elong2 = nutrigon_elongation(fit2))
 check$flag
 ```
 
@@ -64,7 +63,9 @@ clustering, and overlay-plot example built on Zanco et al. (2025).
 
 ## Citation
 
-> Morimoto, J. (in review). Bootstrap inference for angular separation between constrained optima of nutritional ecology response surfaces. *Environmental and Ecological Statistics*.
+> Morimoto, J. (in review). Bootstrap inference for angular separation
+> between constrained optima of nutritional ecology response surfaces.
+> *Environmental and Ecological Statistics*.
 
 And the original Nutrigonometry paper:
 
@@ -75,3 +76,7 @@ And the original Nutrigonometry paper:
 ## License
 
 MIT
+
+## Author
+
+Juliano Morimoto ([ORCID: 0000-0003-3561-1920](https://orcid.org/0000-0003-3561-1920))

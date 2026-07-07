@@ -1,30 +1,35 @@
 Package: nutrigon
-Title: Angular Separation Between Nutritional Optima in the Geometric
-        Framework for Nutrition
+Title: Angular Separation Between Nutritional Optima
 Version: 0.1.0
-Authors@R: person("Juliano", "Morimoto", email = "juliano.morimoto@abdn.ac.uk", role = c("aut", "cre"))
-Description: Fits quadratic response surfaces to trait data collected under the
-    Geometric Framework for Nutrition and computes the angular separation
+Authors@R: person("Juliano", "Morimoto", email = "juliano.morimoto@abdn.ac.uk", role = c("aut", "cre"), comment = c(ORCID = "0000-0003-3561-1920"))
+Description: Fits quadratic response surfaces to trait data collected under
+    the Geometric Framework for Nutrition and computes the angular separation
     (theta) between the nutritional optima of two traits, with bootstrap
     confidence intervals. Provides a simulation-based per-result reliability
     diagnostic that compares a given result's risk-factor profile (curvature
     elongation, distance to the angular boundary of the design, and angular
     separation) against a pre-built validation grid of configurations with
     known ground-truth bootstrap coverage. Includes the Lee et al. (2008)
-    Drosophila lifespan/fecundity dataset as a worked example.
+    Drosophila lifespan and fecundity dataset as a worked example. Methods
+    are described in Morimoto (2023) <doi:10.1086/723599>.
 License: MIT + file LICENSE
 Encoding: UTF-8
+LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Depends: R (>= 4.1)
-Imports: stats, grDevices
-Suggests: ggplot2, ggdendro, ggrepel, patchwork, knitr, rmarkdown,
-        testthat (>= 3.0.0)
+Imports:
+    stats,
+    grDevices
+Suggests:
+    ggplot2,
+    ggdendro,
+    ggrepel,
+    patchwork,
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3
-URL: https://github.com/jmor2753/Nutrigonometry_validation
-BugReports: https://github.com/jmor2753/Nutrigonometry_validation/issues
-NeedsCompilation: no
-Packaged: 2026-07-07 12:06:11 UTC; s23jm9
-Author: Juliano Morimoto [aut, cre]
-Maintainer: Juliano Morimoto <juliano.morimoto@abdn.ac.uk>
+URL: https://github.com/jmor2753/nutrigon
+BugReports: https://github.com/jmor2753/nutrigon/issues

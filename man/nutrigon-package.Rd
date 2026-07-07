@@ -51,8 +51,8 @@ Morimoto, J. et al. (2023). Nutrigonometry I: using right-angle triangles
 to quantify nutritional trade-offs in performance landscapes. \emph{The
 American Naturalist}, 201(5), 725-740.
 
-Morimoto, J. (in review). Formalising statistical inference for
-Nutrigonometry: bootstrap confidence intervals for the angular separation
-between nutritional optima. \emph{Methods in Ecology and Evolution}.
+Morimoto, J. (in review). Bootstrap inference for angular separation
+between constrained optima of nutritional ecology response surfaces.
+\emph{Environmental and Ecological Statistics}.
 }
 \keyword{internal}

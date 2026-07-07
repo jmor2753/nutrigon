@@ -35,7 +35,7 @@ test_that("nutrigon_elongation matches fit$elongation", {
   expect_equal(nutrigon_elongation(fit), fit$elongation)
 })
 
-test_that("nutrigon_check runs against the shipped validation grid", {
+test_that("nutrigon_check works with an explicitly supplied validation grid", {
   data(lee_drosophila)
   data(nutrigon_validation_grid)
 
@@ -59,6 +59,69 @@ test_that("nutrigon_check runs against the shipped validation grid", {
   expect_true(check$estimated_coverage >= 0 && check$estimated_coverage <= 1)
   expect_true(is.character(check$flag))
   expect_equal(check$n_neighbours, 10)
+})
+
+test_that("nutrigon_check defaults to the shipped grid without rebuilding", {
+  data(lee_drosophila)
+  data(nutrigon_validation_grid)
+
+  fit1 <- nutrigon_fit(lee_drosophila, "protein_eaten", "carb_eaten",
+                        "lifespan", design_id_col = "treatment")
+  fit2 <- nutrigon_fit(lee_drosophila, "protein_eaten", "carb_eaten",
+                        "dailyeggs", design_id_col = "treatment")
+  result <- nutrigon_compare(
+    lee_drosophila, "protein_eaten", "carb_eaten", "lifespan",
+    lee_drosophila, "protein_eaten", "carb_eaten", "dailyeggs",
+    design_id_col1 = "treatment", design_id_col2 = "treatment",
+    paired = TRUE, B = 30, seed = 1
+  )
+
+  # No validation_grid argument supplied at all -- should use the shipped
+  # grid directly and NOT print the "Building a fresh validation grid"
+  # message (which only fires when validation_grid = NULL is explicit).
+  expect_no_message(
+    check_default <- nutrigon_check(result,
+                                     elong1 = nutrigon_elongation(fit1),
+                                     elong2 = nutrigon_elongation(fit2))
+  )
+
+  check_explicit <- nutrigon_check(result,
+                                    elong1 = nutrigon_elongation(fit1),
+                                    elong2 = nutrigon_elongation(fit2),
+                                    validation_grid = nutrigon_validation_grid)
+
+  # Defaulting should give identical results to passing the shipped grid
+  # explicitly (same object, same neighbours).
+  expect_equal(check_default$estimated_coverage, check_explicit$estimated_coverage)
+  expect_equal(check_default$n_neighbours, check_explicit$n_neighbours)
+})
+
+test_that("nutrigon_check with validation_grid = NULL rebuilds from scratch and messages", {
+  data(lee_drosophila)
+
+  fit1 <- nutrigon_fit(lee_drosophila, "protein_eaten", "carb_eaten",
+                        "lifespan", design_id_col = "treatment")
+  fit2 <- nutrigon_fit(lee_drosophila, "protein_eaten", "carb_eaten",
+                        "dailyeggs", design_id_col = "treatment")
+  result <- nutrigon_compare(
+    lee_drosophila, "protein_eaten", "carb_eaten", "lifespan",
+    lee_drosophila, "protein_eaten", "carb_eaten", "dailyeggs",
+    design_id_col1 = "treatment", design_id_col2 = "treatment",
+    paired = TRUE, B = 30, seed = 1
+  )
+
+  # Explicit NULL is the escape hatch for a from-scratch rebuild; keep n
+  # tiny here purely so the test suite stays fast.
+  expect_message(
+    check_fresh <- nutrigon_check(result,
+                                   elong1 = nutrigon_elongation(fit1),
+                                   elong2 = nutrigon_elongation(fit2),
+                                   validation_grid = NULL,
+                                   k = 3),
+    "Building a fresh validation grid"
+  )
+  expect_true(check_fresh$estimated_coverage >= 0 &&
+                check_fresh$estimated_coverage <= 1)
 })
 
 test_that("plot helpers return correctly named data frames", {

@@ -14,14 +14,22 @@
 #' @param elong1,elong2 Elongation ratios for the two surfaces (from
 #'   [nutrigon_elongation()]).
 #' @param k Number of nearest validation-grid neighbours (default 10).
-#' @param validation_grid A pre-built grid from [nutrigon_build_grid()]. If
-#'   `NULL`, a small grid is built automatically (takes approximately 1-3
-#'   minutes). The package ships a pre-built grid,
-#'   `nutrigon_validation_grid` (`seed = 2025`, 1000 configurations), which
-#'   can be passed here directly: `data(nutrigon_validation_grid)`.
+#' @param validation_grid A pre-built grid, typically from
+#'   [nutrigon_build_grid()]. Defaults to `"default"`, which loads and uses
+#'   the grid shipped with the package, `nutrigon_validation_grid`
+#'   (`seed = 2025`, 1000 configurations, `B_boot = 100`) -- this is fast
+#'   (no simulation is run) and is the right choice for almost all users.
+#'   Pass `NULL` to build a fresh grid from scratch instead (slow, several
+#'   minutes; only needed if your design deviates from the standard 5-rail
+#'   `[5.71, 84.29]` angular support the shipped grid was built under, or
+#'   you want a custom `n`/`n_sim`/`B_boot`). Alternatively pass your own
+#'   pre-built grid object (e.g. from a prior [nutrigon_build_grid()] call)
+#'   to reuse it directly.
 #' @param theta_min,theta_max Angular support of the design (degrees).
 #'   Defaults to the standard 5-rail design used in validation,
-#'   `[5.71, 84.29]`.
+#'   `[5.71, 84.29]`. Only used when a fresh grid is built (i.e. when
+#'   `validation_grid = NULL`); ignored when using the shipped or a
+#'   supplied grid.
 #'
 #' @return A list with:
 #'   \describe{
@@ -34,7 +42,6 @@
 #'   }
 #'
 #' @examples
-#' \donttest{
 #' data(lee_drosophila)
 #' fit_lifespan <- nutrigon_fit(lee_drosophila, "protein_eaten", "carb_eaten",
 #'                               "lifespan", design_id_col = "treatment")
@@ -46,13 +53,11 @@
 #'   design_id_col1 = "treatment", design_id_col2 = "treatment",
 #'   paired = TRUE, B = 50, seed = 1
 #' )
-#' data(nutrigon_validation_grid)
+#' # Uses the shipped validation grid by default -- fast, no simulation.
 #' check <- nutrigon_check(result,
 #'                          elong1 = nutrigon_elongation(fit_lifespan),
-#'                          elong2 = nutrigon_elongation(fit_eggs),
-#'                          validation_grid = nutrigon_validation_grid)
+#'                          elong2 = nutrigon_elongation(fit_eggs))
 #' check$flag
-#' }
 #'
 #' @seealso [nutrigon_compare()], [nutrigon_build_grid()],
 #'   [nutrigon_elongation()]
@@ -61,12 +66,14 @@ nutrigon_check <- function(result,
                             elong1,
                             elong2,
                             k                = 10,
-                            validation_grid  = NULL,
+                            validation_grid  = "default",
                             theta_min        = 5.71,
                             theta_max        = 84.29) {
 
-  if (is.null(validation_grid)) {
-    message("Building validation grid (n=20, ~1-2 min)...")
+  if (identical(validation_grid, "default")) {
+    validation_grid <- .load_default_validation_grid()
+  } else if (is.null(validation_grid)) {
+    message("Building a fresh validation grid (n=20, ~1-2 min)...")
     validation_grid <- nutrigon_build_grid(n = 20, n_sim = 8, seed = 42,
                                             theta_min = theta_min,
                                             theta_max = theta_max)
