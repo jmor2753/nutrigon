@@ -1,4 +1,4 @@
-# nutrigon <a href="https://github.com/jmor2753/Nutrigonometry_validation"><img src="man/figures/logo.png" align="right" height="139" alt="nutrigon logo" /></a>
+# nutrigon <a href="https://github.com/jmor2753/nutrigon"><img src="man/figures/logo.png" align="right" height="139" alt="nutrigon logo" /></a>
 
 <!-- badges: start -->
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -11,7 +11,7 @@ under the Geometric Framework for Nutrition (GFN) and computes the
 angular separation (theta) between the nutritional optima of two traits,
 with bootstrap confidence intervals. It also provides a simulation-based
 per-result reliability diagnostic that flags whether a given result
-resembles configurations that validated well or poorly in extensive
+resembles configurations that achieved nominal coverage or dropped below nominal in extensive
 simulation (see Morimoto, in review, *Environmental and Ecological
 Statistics*).
 
@@ -72,6 +72,14 @@ And the original Nutrigonometry paper:
 > Morimoto, J. et al. (2023). Nutrigonometry I: using right-angle
 > triangles to quantify nutritional trade-offs in performance landscapes.
 > *The American Naturalist*, 201(5), 725-740.
+
+## License
+
+MIT
+
+## Author
+
+Juliano Morimoto ([ORCID: 0000-0003-3561-1920](https://orcid.org/0000-0003-3561-1920))
 
 ## License
 
