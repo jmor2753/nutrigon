@@ -139,6 +139,6 @@ Taylor, P.W., Soran, N. & Raubenheimer, D. (2008). Lifespan and
 reproduction in *Drosophila*: new insights from nutritional geometry.
 *PNAS*, 105(7), 2498-2503.
 
-Morimoto, J. (in review). Bootstrap inference for angular separation
-between constrained optima of nutritional ecology response surfaces.
-*Environmental and Ecological Statistics*.
+Morimoto, J. (in review). Formalising statistical inference for
+Nutrigonometry: bootstrap confidence intervals for the angular separation
+between nutritional optima. *Methods in Ecology and Evolution*.

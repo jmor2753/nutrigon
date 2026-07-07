@@ -139,10 +139,11 @@
   data.frame(x = x, y = y, z1 = z1, z2 = z2, id = nominal$id)
 }
 
-# With LazyData: true (see DESCRIPTION), nutrigon_validation_grid is
-# lazily bound in the package namespace and available directly -- no
-# data() call needed. get0() with the package's namespace as envir is the
-# standard way to reference it defensively from inside package code.
+# Load the package's shipped validation grid without polluting the
+# caller's environment (avoids calling data() at top level inside a
+# function, which would assign into globalenv()).
 .load_default_validation_grid <- function() {
-  get0("nutrigon_validation_grid", envir = asNamespace("nutrigon"))
+  env <- new.env()
+  utils::data("nutrigon_validation_grid", package = "nutrigon", envir = env)
+  env$nutrigon_validation_grid
 }
