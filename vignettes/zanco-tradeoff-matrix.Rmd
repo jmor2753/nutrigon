@@ -1,0 +1,304 @@
+---
+title: "The Zanco et al. (2025) trade-off matrix: unpaired comparisons and clustering"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Zanco trade-off matrix}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5.5
+)
+```
+
+## Overview
+
+This vignette replicates the second worked example from the Nutrigonometry
+validation paper: the pairwise angular trade-off matrix across egg-to-adult
+viability and wing size in *Drosophila melanogaster*, measured at three
+temperature regimes and in two locally-adapted populations (Zanco et al.
+2025).
+
+Unlike the Lee example (see `vignette("getting-started")`), viability is
+measured per vial and wing size per individual fly -- the two traits do
+not share a sampling unit, so every comparison here is **unpaired**
+(`paired = FALSE` in `nutrigon_compare()`).
+
+With 2 traits x 3 temperatures x 2 populations = 12 fitted surfaces, there
+are $\binom{12}{2} = 66$ pairwise comparisons. At `B = 200` bootstrap
+resamples each, building the full matrix from scratch takes several
+minutes, so this package ships the result pre-built as
+`zanco_tradeoff_matrix`. This vignette loads it directly; the code used to
+build it (fitting the 12 surfaces, then looping over all pairs) is shown
+alongside so you can see exactly how it was constructed and adapt it to
+your own data.
+
+```{r setup}
+library(nutrigon)
+data(zanco_survival)
+data(zanco_wingsize)
+data(zanco_tradeoff_matrix)
+
+TEMPS <- c("18fluc", "25fluc", "28fluc")
+POPS  <- c("Melbourne", "Townsville")
+
+cat(sprintf("Survival data: %d rows | Wing size data: %d rows\n",
+            nrow(zanco_survival), nrow(zanco_wingsize)))
+cat(sprintf("Environments: %d temperatures x %d populations = %d surfaces per trait\n",
+            length(TEMPS), length(POPS), length(TEMPS) * length(POPS)))
+cat(sprintf("Total surfaces: %d | Pairwise comparisons: %d\n",
+            2 * length(TEMPS) * length(POPS),
+            choose(2 * length(TEMPS) * length(POPS), 2)))
+```
+
+## How the matrix was built
+
+The 12 surfaces were fitted with `nutrigon_fit()`, one per trait x
+temperature x population combination:
+
+```{r fit-surfaces, eval = FALSE}
+surfaces <- list()
+for (temp in TEMPS) {
+  for (pop in POPS) {
+    sub_s <- zanco_survival[zanco_survival$Temperature == temp &
+                             zanco_survival$Population  == pop, ]
+    key_s <- paste("viability", temp, pop, sep = "_")
+    surfaces[[key_s]] <- nutrigon_fit(
+      sub_s, "Prot", "Carb", "Prop_viable",
+      design_id_col = "design_id", peak = TRUE
+    )
+
+    sub_w <- zanco_wingsize[zanco_wingsize$Temperature == temp &
+                             zanco_wingsize$Population  == pop, ]
+    key_w <- paste("wingsize", temp, pop, sep = "_")
+    surfaces[[key_w]] <- nutrigon_fit(
+      sub_w, "Prot", "Carb", "WingSize",
+      design_id_col = "design_id", peak = TRUE
+    )
+  }
+}
+```
+
+`zanco_tradeoff_matrix$surfaces` already contains these 12 fitted objects,
+so we use that directly:
+
+```{r surfaces-from-shipped-data}
+surfaces <- zanco_tradeoff_matrix$surfaces
+for (nm in names(surfaces)) {
+  cat(sprintf("  [%s] theta = %.2f deg | elongation = %.2f | fallback = %s\n",
+              nm,
+              surfaces[[nm]]$optimum$theta,
+              surfaces[[nm]]$elongation,
+              surfaces[[nm]]$optimum$used_fallback))
+}
+```
+
+Each pairwise comparison was then run with `nutrigon_compare(...,
+paired = FALSE, B = 200)`:
+
+```{r pairwise-code, eval = FALSE}
+res <- nutrigon_compare(
+  raw_i, "Prot", "Carb", z_i,
+  raw_j, "Prot", "Carb", z_j,
+  design_id_col1 = "design_id", design_id_col2 = "design_id",
+  paired = FALSE,
+  B      = 200,
+  seed   = pair_id
+)
+```
+
+The result of running this over all 66 pairs is stored in
+`zanco_tradeoff_matrix`:
+
+```{r inspect-matrix}
+Theta_matrix <- zanco_tradeoff_matrix$Theta
+round(Theta_matrix[1:4, 1:4], 2)
+```
+
+## Headline result: viability-wing size trade-off by temperature and population
+
+```{r headline}
+pairwise_df <- zanco_tradeoff_matrix$pairwise
+
+headline <- pairwise_df[
+  pairwise_df$trait_1 != pairwise_df$trait_2 &
+  pairwise_df$temperature_1 == pairwise_df$temperature_2 &
+  pairwise_df$population_1  == pairwise_df$population_2, ]
+headline$temp_label <- sub("fluc", "\u00b15\u00b0C", headline$temperature_1)
+
+print(headline[order(headline$temperature_1, headline$population_1),
+               c("temp_label", "population_1", "theta_deg", "ci_lower", "ci_upper")],
+      row.names = FALSE)
+```
+
+The viability-wing size trade-off collapses towards zero for Melbourne at
+warmer temperatures, while Townsville's angular separation stays fairly
+stable across temperatures -- consistent with population-specific
+thermal adaptation of the nutritional optima.
+
+## Hierarchical clustering and multidimensional scaling
+
+Treating `Theta` as a distance matrix lets us cluster the 12 surfaces and
+visualise them in two dimensions:
+
+```{r clustering}
+dist_obj <- as.dist(Theta_matrix)
+hc       <- hclust(dist_obj, method = "average")
+mds      <- cmdscale(dist_obj, k = 2, eig = TRUE)
+
+cat(sprintf("MDS: %.1f%% of variance explained by first 2 axes.\n",
+            100 * sum(mds$eig[1:2]) / sum(abs(mds$eig))))
+```
+
+```{r dendrogram, eval = requireNamespace("ggplot2", quietly = TRUE) && requireNamespace("ggdendro", quietly = TRUE)}
+library(ggplot2)
+
+if (requireNamespace("ggdendro", quietly = TRUE)) {
+  ddata <- ggdendro::dendro_data(hc)
+  ggplot() +
+    geom_segment(data = ggdendro::segment(ddata),
+                 aes(x = x, y = y, xend = xend, yend = yend)) +
+    geom_text(data = ggdendro::label(ddata),
+              aes(x = x, y = y, label = label),
+              hjust = 1, size = 3, nudge_y = -1) +
+    coord_flip() +
+    scale_y_reverse(expand = expansion(mult = c(0.3, 0.05))) +
+    labs(x = NULL, y = "Angular distance (degrees)",
+         title = "Hierarchical clustering of the 12 fitted surfaces") +
+    theme_minimal(base_size = 11) +
+    theme(axis.text.y = element_blank(), panel.grid = element_blank())
+} else {
+  plot(hc, main = "Hierarchical clustering of the 12 fitted surfaces",
+       xlab = "", sub = "")
+}
+```
+
+```{r mds-plot, eval = requireNamespace("ggplot2", quietly = TRUE) && requireNamespace("ggrepel", quietly = TRUE)}
+mds_df <- data.frame(
+  surface = rownames(Theta_matrix),
+  mds1    = mds$points[, 1],
+  mds2    = mds$points[, 2]
+)
+mds_df$trait <- ifelse(startsWith(mds_df$surface, "viability"),
+                        "Viability", "Wing size")
+
+ggplot(mds_df, aes(x = mds1, y = mds2, colour = trait)) +
+  geom_point(size = 3) +
+  ggrepel::geom_text_repel(aes(label = surface), size = 2.8, show.legend = FALSE) +
+  scale_colour_manual(values = c(Viability = "#E69F00", `Wing size` = "#009E73"),
+                      name = "Trait") +
+  labs(x = "MDS axis 1", y = "MDS axis 2",
+       title = "Multidimensional scaling of angular separations") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid = element_blank())
+```
+
+## Surface overlay plots
+
+The plot helpers `nutrigon_grid()`, `nutrigon_hull()`, and
+`nutrigon_region_polygon()` let us overlay both traits' peak regions on
+the same design hull, faceted by temperature and population.
+
+```{r overlay-data}
+build_overlay_data <- function(surfaces, temps, pops) {
+  region_rows <- list(); hull_rows <- list()
+  for (temp in temps) {
+    for (pop in pops) {
+      v_key <- paste("viability", temp, pop, sep = "_")
+      w_key <- paste("wingsize",  temp, pop, sep = "_")
+      temp_label <- sub("fluc", "\u00b15\u00b0C", temp)
+
+      for (kk in c(v_key, w_key)) {
+        trait_label <- if (startsWith(kk, "viability")) "Viability" else "Wing size"
+        s <- surfaces[[kk]]
+        reg <- nutrigon_region_polygon(s)
+        names(reg)[1:2] <- c("Prot", "Carb")
+        region_rows[[length(region_rows) + 1L]] <- cbind(
+          reg, trait = trait_label, temperature = temp_label, population = pop
+        )
+      }
+      hull_df <- nutrigon_hull(surfaces[[v_key]])
+      names(hull_df)[1:2] <- c("Prot", "Carb")
+      hull_rows[[length(hull_rows) + 1L]] <- cbind(
+        hull_df, temperature = temp_label, population = pop
+      )
+    }
+  }
+  list(regions = do.call(rbind, region_rows),
+       hulls   = do.call(rbind, hull_rows))
+}
+
+ov <- build_overlay_data(surfaces, TEMPS, POPS)
+
+temp_order <- paste0(c("18", "25", "28"), "\u00b15\u00b0C")
+ov$regions$temperature <- factor(ov$regions$temperature, levels = temp_order)
+ov$hulls$temperature    <- factor(ov$hulls$temperature,  levels = temp_order)
+ov$regions$population   <- factor(ov$regions$population, levels = POPS)
+ov$hulls$population     <- factor(ov$hulls$population,   levels = POPS)
+```
+
+```{r overlay-plot, eval = requireNamespace("ggplot2", quietly = TRUE)}
+TRAIT_COLS <- c("Viability" = "#E69F00", "Wing size" = "#009E73")
+
+ggplot() +
+  geom_polygon(data = ov$hulls,
+               aes(x = Prot, y = Carb),
+               fill = NA, colour = "black", linewidth = 0.5) +
+  geom_polygon(data = ov$regions,
+               aes(x = Prot, y = Carb,
+                   fill   = trait,
+                   colour = trait,
+                   group  = interaction(trait, temperature, population)),
+               alpha = 0.35, linewidth = 0.6, inherit.aes = FALSE) +
+  scale_fill_manual(values = TRAIT_COLS,   name = "Trait") +
+  scale_colour_manual(values = TRAIT_COLS, name = "Trait") +
+  facet_grid(population ~ temperature) +
+  labs(x = "Protein (g/L)", y = "Carbohydrate (g/L)",
+       title = "Peak regions: viability vs wing size") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid      = element_blank(),
+        strip.text      = element_text(face = "bold", size = 10),
+        legend.position = "right")
+```
+
+## Headline strip chart
+
+```{r headline-plot, eval = requireNamespace("ggplot2", quietly = TRUE)}
+headline$pop_f  <- factor(headline$population_1, levels = POPS)
+headline$temp_f <- factor(headline$temp_label,   levels = temp_order)
+
+ggplot(headline,
+       aes(x = temp_f, y = theta_deg,
+           colour = pop_f, fill = pop_f, shape = pop_f,
+           ymin = ci_lower, ymax = ci_upper)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey60") +
+  geom_linerange(position = position_dodge(0.35), linewidth = 0.8) +
+  geom_point(position = position_dodge(0.35), size = 3.5, stroke = 0.8) +
+  scale_colour_manual(values = c(Melbourne = "#4477AA", Townsville = "#AA3377"),
+                      name = "Population") +
+  scale_fill_manual(values   = c(Melbourne = "#4477AA", Townsville = "#AA3377"),
+                    name = "Population") +
+  scale_shape_manual(values  = c(Melbourne = 16, Townsville = 17),
+                     name = "Population") +
+  labs(x = "Temperature regime", y = "Angular separation (\u00b0)",
+       title = "Viability-wing size trade-off across environments") +
+  theme_bw(base_size = 12) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor   = element_blank())
+```
+
+## References
+
+Zanco, B., Morimoto, J., Cockerell, F., Mirth, C. & Sgro, C.M. (2025).
+Nutritional optima for life-history traits vary with temperature and
+across locally-adapted populations. *Journal of Insect Physiology*, 163,
+104815.
+
+Morimoto, J. (in review). Formalising statistical inference for
+Nutrigonometry: bootstrap confidence intervals for the angular separation
+between nutritional optima. *Methods in Ecology and Evolution*.

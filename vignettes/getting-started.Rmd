@@ -1,0 +1,146 @@
+---
+title: "Getting started with nutrigon: the Lee et al. (2008) example"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with nutrigon}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 6,
+  fig.height = 5
+)
+```
+
+## Overview
+
+This vignette replicates the worked Lee et al. (2008) example from the
+Nutrigonometry validation paper, using the `lee_drosophila` dataset shipped
+with this package. It walks through the core workflow:
+
+1. `nutrigon_fit()` -- fit a quadratic response surface and locate the
+   nutritional optimum for each trait.
+2. `nutrigon_compare()` -- bootstrap the angular separation between the two
+   optima.
+3. `nutrigon_elongation()` and `nutrigon_check()` -- assess whether the
+   result resembles configurations that validated well in simulation.
+
+The Lee dataset records nutrient intake, lifespan, and daily egg production
+for female *Drosophila melanogaster* reared across a geometric array of
+protein:carbohydrate diets. Both traits were measured on the same
+individual flies, so the comparison below is **paired**.
+
+```{r setup}
+library(nutrigon)
+data(lee_drosophila)
+str(lee_drosophila)
+```
+
+## Fitting the two surfaces
+
+```{r fit-surfaces}
+fit_lifespan <- nutrigon_fit(
+  lee_drosophila, "protein_eaten", "carb_eaten", "lifespan",
+  design_id_col = "treatment", peak = TRUE
+)
+print(fit_lifespan)
+
+fit_eggs <- nutrigon_fit(
+  lee_drosophila, "protein_eaten", "carb_eaten", "dailyeggs",
+  design_id_col = "treatment", peak = TRUE
+)
+print(fit_eggs)
+```
+
+## Comparing the optima
+
+```{r compare, cache = FALSE}
+result_lee <- nutrigon_compare(
+  lee_drosophila, "protein_eaten", "carb_eaten", "lifespan",
+  lee_drosophila, "protein_eaten", "carb_eaten", "dailyeggs",
+  design_id_col1 = "treatment", design_id_col2 = "treatment",
+  paired = TRUE,
+  B      = 500,
+  seed   = 1
+)
+print(result_lee)
+```
+
+The point estimate and confidence interval should closely match the
+published result: theta = 20.51 degrees, 95% CI [10.99, 26.14].
+
+## Reliability diagnostic
+
+`nutrigon_check()` compares this result's risk-factor profile (curvature
+elongation, distance to the angular boundary of the design, and angular
+separation) against the pre-built validation grid `nutrigon_validation_grid`
+(`seed = 2025`), which contains 1000 simulated configurations with known
+ground-truth bootstrap coverage.
+
+```{r reliability}
+data(nutrigon_validation_grid)
+
+check_lee <- nutrigon_check(
+  result          = result_lee,
+  elong1          = nutrigon_elongation(fit_lifespan),
+  elong2          = nutrigon_elongation(fit_eggs),
+  k               = 10,
+  validation_grid = nutrigon_validation_grid
+)
+
+cat(check_lee$flag, "\n")
+cat(sprintf(
+  "Estimated coverage from %d nearest neighbours: %.1f%%\n",
+  check_lee$n_neighbours, check_lee$estimated_coverage * 100
+))
+```
+
+This is a diagnostic only -- it does not change the confidence interval
+above.
+
+## Plotting the surfaces
+
+The plot helpers `nutrigon_grid()`, `nutrigon_hull()`, and
+`nutrigon_region_polygon()` require the \pkg{ggplot2} package (listed
+under Suggests).
+
+```{r plot-surfaces, eval = requireNamespace("ggplot2", quietly = TRUE)}
+library(ggplot2)
+
+grid_lifespan   <- nutrigon_grid(fit_lifespan, n = 100)
+hull_lifespan   <- nutrigon_hull(fit_lifespan)
+region_lifespan <- nutrigon_region_polygon(fit_lifespan)
+
+ggplot(grid_lifespan,
+       aes(x = protein_eaten, y = carb_eaten, fill = predicted)) +
+  geom_raster(interpolate = TRUE) +
+  geom_contour(aes(z = predicted), colour = "black", linewidth = 0.08) +
+  geom_polygon(data = hull_lifespan,
+               aes(x = protein_eaten, y = carb_eaten),
+               fill = NA, colour = "black", linewidth = 0.5,
+               inherit.aes = FALSE) +
+  geom_polygon(data = region_lifespan,
+               aes(x = protein_eaten, y = carb_eaten),
+               fill = "red", colour = "grey50", alpha = 0.3,
+               linewidth = 0.6, inherit.aes = FALSE) +
+  scale_fill_distiller(palette = "Spectral", name = "Lifespan (days)") +
+  labs(x = "Protein (mg)", y = "Carbohydrate (mg)",
+       title = "Lifespan response surface") +
+  theme_bw(base_size = 12) +
+  theme(panel.grid = element_blank())
+```
+
+## References
+
+Lee, K.P., Simpson, S.J., Clissold, F.J., Brooks, R., Ballard, J.W.O.,
+Taylor, P.W., Soran, N. & Raubenheimer, D. (2008). Lifespan and
+reproduction in *Drosophila*: new insights from nutritional geometry.
+*PNAS*, 105(7), 2498-2503.
+
+Morimoto, J. (in review). Formalising statistical inference for
+Nutrigonometry: bootstrap confidence intervals for the angular separation
+between nutritional optima. *Methods in Ecology and Evolution*.
