@@ -3,10 +3,13 @@
 \alias{nutrigon_region_polygon}
 \title{Peak (or valley) region as a convex hull polygon for plotting}
 \usage{
-nutrigon_region_polygon(fit)
+nutrigon_region_polygon(fit, quiet = FALSE)
 }
 \arguments{
 \item{fit}{A \code{"nutrigon_fit"} object (from \code{\link{nutrigon_fit}}).}
+
+\item{quiet}{Suppress the link-scale reminder message for GLM fits
+(default \code{FALSE}).}
 }
 \value{
 A data frame with the same column names as \code{fit$region}, closed
@@ -17,6 +20,19 @@ Returns the convex hull of the top- (or bottom-) quantile region stored
 in a \code{"nutrigon_fit"} object, as a closed polygon data frame
 suitable for \code{ggplot2::geom_polygon()}.
 }
+\section{GLM fits}{
+ the region stored in \code{fit$region} (and therefore
+  returned here) was extracted on the \strong{link scale} for
+  \code{model_type = "glm"} fits, consistent with
+  \code{\link{nutrigon_grid}} and the optimum-finding logic in
+  \code{\link{nutrigon_fit}}. The (x, y) coordinates returned are always
+  in the original nutrient units regardless of model type -- it is only
+  the \emph{criterion} used to select which points fall inside the
+  region (top/bottom quantile of the link-scale prediction) that
+  differs. A reminder message is printed for GLM fits; pass
+  \code{quiet = TRUE} to suppress it.
+}
+
 \examples{
 data(lee_drosophila)
 fit_lifespan <- nutrigon_fit(lee_drosophila, "protein_eaten", "carb_eaten",

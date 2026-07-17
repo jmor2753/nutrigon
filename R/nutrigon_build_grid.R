@@ -37,19 +37,12 @@ nutrigon_build_grid <- function(n         = 20,
                                  seed      = 42,
                                  theta_min = 5.71,
                                  theta_max = 84.29) {
-  if (exists(".Random.seed", envir = .GlobalEnv)) {
-    old_seed <- get(".Random.seed", envir = .GlobalEnv)
-    on.exit({
-      assign(".Random.seed", old_seed, envir = .GlobalEnv)
-    }, add = TRUE)
-  } else {
-    on.exit({
-      if (exists(".Random.seed", envir = .GlobalEnv)) {
-        rm(".Random.seed", envir = .GlobalEnv)
-      }
-    }, add = TRUE)
-  }
-  set.seed(seed)
+  # See the comment in nutrigon_compare() for why withr::local_seed() is
+  # used here instead of a hand-rolled .GlobalEnv save/restore -- CRAN's
+  # automated check flags any literal assign(..., envir = .GlobalEnv) /
+  # .GlobalEnv$.Random.seed <- pattern in a package's own source, even
+  # when it is a strict save-then-restore that leaves no net change.
+  withr::local_seed(seed)
   INTAKE_SD   <- 8
   RESPONSE_SD <- 2
   MAX_TOTAL   <- 200

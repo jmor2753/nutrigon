@@ -1,18 +1,25 @@
 #' nutrigon: Angular Separation Between Nutritional Optima
 #'
-#' Fits quadratic response surfaces to trait data collected under the
-#' Geometric Framework for Nutrition (GFN) and computes the angular
-#' separation (theta) between the nutritional optima of two traits, with
-#' bootstrap confidence intervals.
+#' Fits response surfaces (ordinary least squares, generalized linear
+#' models with any family, or linear mixed-effects models) to trait data
+#' collected under the Geometric Framework for Nutrition (GFN) and computes
+#' the angular separation (theta) between the nutritional optima of two
+#' traits, with bootstrap confidence intervals.
 #'
 #' @section Core workflow:
 #' \describe{
-#'   \item{[nutrigon_fit()]}{Fit a quadratic response surface and locate the
-#'     nutritional optimum.}
-#'   \item{[nutrigon_compare()]}{Compare two surfaces; returns the angular
-#'     separation and its bootstrap CI (the main result).}
+#'   \item{[nutrigon_fit()]}{Fit a quadratic response surface (`"lm"`,
+#'     `"glm"`, or `"lmer"`, via `model_type`) and locate the nutritional
+#'     optimum.}
+#'   \item{[nutrigon_compare()]}{Compare two surfaces (optionally with
+#'     different `model_type`s); returns the angular separation and its
+#'     bootstrap CI (the main result).}
+#'   \item{[nutrigon_coefs()]}{Extract the fitted link-scale quadratic
+#'     coefficients from a fit, regardless of model type.}
 #'   \item{[nutrigon_elongation()]}{Estimate the curvature elongation ratio
 #'     of a fitted surface.}
+#'   \item{[nutrigon_curvature()]}{Local Gaussian and mean curvature, and a
+#'     surface-area ratio, for a fitted surface.}
 #'   \item{[nutrigon_check()]}{Per-result reliability diagnostic against a
 #'     pre-built validation grid.}
 #' }
@@ -28,6 +35,14 @@
 #' @section Example data:
 #' `lee_drosophila`, from Lee et al. (2008), and the pre-built validation
 #' grid `nutrigon_validation_grid` (`seed = 2025`).
+#'
+#' @section Optional dependencies:
+#' `model_type = "lmer"` in [nutrigon_fit()]/[nutrigon_compare()] requires
+#' the \pkg{lme4} and \pkg{lmerTest} packages; the surface-area ratio
+#' returned by [nutrigon_curvature()] requires \pkg{pracma}. None of these
+#' are required for `"lm"`/`"glm"` fits or for local curvature alone, so
+#' they are Suggests, not hard dependencies -- install them with
+#' `install.packages(c("lme4", "lmerTest", "pracma"))` if needed.
 #'
 #' @references
 #' Lee, K.P., Simpson, S.J., Clissold, F.J., Brooks, R., Ballard, J.W.O.,

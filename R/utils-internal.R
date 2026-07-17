@@ -48,63 +48,13 @@
   data.frame(x = out_x, y = out_y)
 }
 
-# Fit a quadratic surface; return coefs, model object, and design hull
-.fit_quadratic <- function(data, x_col, y_col, z_col) {
-  d <- data.frame(.x = data[[x_col]], .y = data[[y_col]], .z = data[[z_col]])
-  d <- d[stats::complete.cases(d), ]
-  if (nrow(d) < 6L)
-    stop("Need at least 6 complete observations to fit a quadratic surface.")
-  mod <- stats::lm(.z ~ .x + .y + I(.x^2) + I(.y^2) + .x:.y, data = d)
-  if (any(is.na(stats::coef(mod))))
-    stop("Quadratic fit is rank-deficient (too few distinct design points?).")
-  hull <- .hull_polygon(d, ".x", ".y")
-  list(model = mod, data = d, hull = hull)
-}
+# NOTE: an earlier lm-only .fit_quadratic()/.locate_optimum() design
+# lived here during development. They are superseded by .fit_surface()
+# (internal-fit.R, which dispatches to lm/glm/lmer) and .locate_optimum()
+# (now in internal-locate-optimum.R, reading coefficients/predictions
+# through the .get_link_coefs()/.predict_link() dispatch layer instead of
+# calling stats::coef()/stats::predict() on a bare lm object directly).
 
-# Locate the optimum of a fitted quadratic (closed-form or MC fallback)
-# Returns a list: x, y, used_fallback (logical)
-.locate_optimum <- function(fit, peak = TRUE, n_cloud = 500, n_reps = 5,
-                             region_quantile = NULL) {
-  if (is.null(region_quantile))
-    region_quantile <- if (peak) 0.95 else 0.05
-
-  cf <- stats::coef(fit$model)
-  a  <- unname(cf["I(.x^2)"])
-  b  <- unname(cf["I(.y^2)"])
-  e  <- unname(cf[".x:.y"])
-  cc <- unname(cf[".x"])
-  d  <- unname(cf[".y"])
-  det <- 4 * a * b - e^2
-
-  correct_sign <- if (peak) a < 0 else a > 0
-  valid_det    <- det > 0
-
-  if (valid_det && correct_sign) {
-    xs <- (e * d - 2 * b * cc) / det
-    ys <- (e * cc - 2 * a * d) / det
-    if (.point_in_hull(xs, ys, fit$hull$x, fit$hull$y)) {
-      return(list(x = xs, y = ys, used_fallback = FALSE))
-    }
-  }
-
-  # Monte Carlo fallback: sample cloud inside hull, evaluate, take top region
-  pool <- vector("list", n_reps)
-  for (i in seq_len(n_reps)) {
-    cloud <- .sample_in_hull(fit$hull$x, fit$hull$y, n = n_cloud)
-    names(cloud) <- c(".x", ".y")
-    cloud$pred <- stats::predict(fit$model, newdata = cloud)
-    cutoff <- stats::quantile(cloud$pred, region_quantile)
-    region <- if (peak) cloud[cloud$pred >= cutoff, ] else
-                         cloud[cloud$pred <= cutoff, ]
-    pool[[i]] <- region
-  }
-  region <- do.call(rbind, pool)
-  if (nrow(region) == 0L)
-    stop("MC fallback returned empty region -- too few cloud points?")
-
-  opt <- region[which.max(if (peak) region$pred else -region$pred), ]
-  list(x = unname(opt$.x), y = unname(opt$.y), used_fallback = TRUE)
-}
 
 # Internal helper: build nominal design matrix for grid-building simulations
 .build_nominal_design <- function(rail_ratios, n_levels, max_total) {
@@ -139,11 +89,10 @@
   data.frame(x = x, y = y, z1 = z1, z2 = z2, id = nominal$id)
 }
 
-# Load the package's shipped validation grid without polluting the
-# caller's environment (avoids calling data() at top level inside a
-# function, which would assign into globalenv()).
+# With LazyData: true (see DESCRIPTION), nutrigon_validation_grid is
+# lazily bound in the package namespace and available directly -- no
+# data() call needed. get0() with the package's namespace as envir is the
+# standard way to reference it defensively from inside package code.
 .load_default_validation_grid <- function() {
-  env <- new.env()
-  utils::data("nutrigon_validation_grid", package = "nutrigon", envir = env)
-  env$nutrigon_validation_grid
+  get0("nutrigon_validation_grid", envir = asNamespace("nutrigon"))
 }

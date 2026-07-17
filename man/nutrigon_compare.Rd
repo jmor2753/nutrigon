@@ -5,8 +5,12 @@
 \usage{
 nutrigon_compare(data1, x1_col, y1_col, z1_col, data2, x2_col, y2_col,
   z2_col, design_id_col1 = NULL, design_id_col2 = NULL, paired = TRUE,
-  peak1 = TRUE, peak2 = TRUE, B = 200, n_cloud = 500,
-  n_reps_cloud = 5, seed = NULL)
+  peak1 = TRUE, peak2 = TRUE, model_type1 = c("lm", "glm", "lmer"),
+  model_type2 = c("lm", "glm", "lmer"), re_formula1 = NULL,
+  re_formula2 = NULL, re_group_cols1 = NULL, re_group_cols2 = NULL,
+  family1 = NULL, family2 = NULL, extra_args1 = list(),
+  extra_args2 = list(), B = 200, n_cloud = 500, n_reps_cloud = 5,
+  seed = NULL)
 }
 \arguments{
 \item{data1, data2}{Data frames for traits 1 and 2. Can be the same object
@@ -26,6 +30,33 @@ resampled independently (optionally within design points via
 \code{design_id_col1}/\code{design_id_col2}).}
 
 \item{peak1, peak2}{\code{TRUE} to locate maxima; \code{FALSE} for minima.}
+
+\item{model_type1, model_type2}{One of \code{"lm"} (default), \code{"glm"},
+or \code{"lmer"}, for surfaces 1 and 2 respectively. Need not match --
+e.g. \code{model_type1 = "glm"} with \code{family1 = binomial()} for a
+viability surface, \code{model_type2 = "lm"} for a continuous wing-size
+surface. See \code{\link{nutrigon_fit}} for details on how each model
+type locates its optimum.}
+
+\item{re_formula1, re_formula2}{Random-effects formula strings, required
+only when the corresponding \code{model_type} is \code{"lmer"}. See
+\code{\link{nutrigon_fit}}.}
+
+\item{re_group_cols1, re_group_cols2}{Character vector(s) of column
+name(s) in \code{data1}/\code{data2} that the corresponding
+\code{re_formula} refers to as grouping factors. Required whenever the
+corresponding \code{re_formula} is supplied. See
+\code{\link{nutrigon_fit}}.}
+
+\item{family1, family2}{Convenience arguments forwarded as \code{family = }
+to \code{\link[stats]{glm}} when the corresponding \code{model_type} is
+\code{"glm"}. Ignored otherwise. For finer control (e.g.
+\code{weights = }, \code{control = }), use
+\code{extra_args1}/\code{extra_args2} instead/in addition.}
+
+\item{extra_args1, extra_args2}{Named lists of further arguments forwarded
+to the underlying fitter for surfaces 1 and 2 respectively (e.g.
+\code{list(weights = ..., control = ...)}).}
 
 \item{B}{Number of bootstrap resamples (default 200; use 500 for
 publication-quality results).}
@@ -53,10 +84,14 @@ Fits two quadratic response surfaces and computes the angular separation
 theta between their nutritional optima, together with a bootstrap
 percentile confidence interval. Supports paired resampling (both traits
 measured on the same individuals) and unpaired resampling with optional
-resampling by design point.
+resampling by design point. The two surfaces may be fitted with different
+model families (e.g. surface 1 as an ordinary least squares fit, surface
+2 as a binomial GLM) -- see \code{model_type1}/\code{model_type2}.
 }
 \examples{
 data(lee_drosophila)
+
+# Both lm() (default) -- identical behaviour to previous package versions
 result <- nutrigon_compare(
   lee_drosophila, "protein_eaten", "carb_eaten", "lifespan",
   lee_drosophila, "protein_eaten", "carb_eaten", "dailyeggs",
@@ -64,6 +99,35 @@ result <- nutrigon_compare(
   paired = TRUE, B = 50, seed = 1
 )
 print(result)
+
+\donttest{
+# Mixed model types: quasi-Poisson GLM for egg count, lm for lifespan
+result_glm <- nutrigon_compare(
+  lee_drosophila, "protein_eaten", "carb_eaten", "lifespan",
+  lee_drosophila, "protein_eaten", "carb_eaten", "dailyeggs",
+  design_id_col1 = "treatment", design_id_col2 = "treatment",
+  paired = TRUE, B = 50, seed = 1,
+  model_type2 = "glm", family2 = quasipoisson()
+)
+
+# Real-data example: viability (a bounded proportion, quasibinomial GLM)
+# vs wing size (a continuous trait, lm), an UNPAIRED comparison since the
+# two traits are measured on different sampling units (per-vial vs
+# per-fly). See vignette("zanco-tradeoff-matrix") for the full analysis.
+data(zanco_survival)
+data(zanco_wingsize)
+mel18_surv <- zanco_survival[zanco_survival$Temperature == "18fluc" &
+                                zanco_survival$Population  == "Melbourne", ]
+mel18_wing <- zanco_wingsize[zanco_wingsize$Temperature == "18fluc" &
+                                zanco_wingsize$Population  == "Melbourne", ]
+result_zanco <- nutrigon_compare(
+  mel18_surv, "Prot", "Carb", "Prop_viable",
+  mel18_wing, "Prot", "Carb", "WingSize",
+  design_id_col1 = "design_id", design_id_col2 = "design_id",
+  paired = FALSE, B = 50, seed = 1,
+  model_type1 = "glm", family1 = quasibinomial()
+)
+}
 
 }
 \seealso{

@@ -6,9 +6,9 @@
 nutrigon_elongation(fit)
 }
 \arguments{
-\item{fit}{A \code{"nutrigon_fit"} object (from \code{\link{nutrigon_fit}}),
-or an \code{lm} object from a quadratic fit with terms \code{.x}, \code{.y},
-\code{I(.x^2)}, \code{I(.y^2)}, \code{.x:.y}.}
+\item{fit}{A \code{"nutrigon_fit"} object (from \code{\link{nutrigon_fit}});
+or a \code{nutrigon_*_fit} wrapper object (i.e. \code{some_fit$model})
+for \code{"lm"}, \code{"glm"}, or \code{"lmer"} fits.}
 }
 \value{
 A single positive number (the elongation ratio, >= 1), or \code{NA} if
@@ -16,9 +16,19 @@ the Hessian is singular.
 }
 \description{
 Returns the ratio of the larger to smaller absolute eigenvalue of the
-fitted quadratic's Hessian. A value near 1 indicates roughly symmetric
-curvature; large values (e.g. > 10) indicate a narrow, ridge-like peak.
-This is used as one of the risk factors in \code{\link{nutrigon_check}}.
+fitted quadratic's Hessian (on the link scale for GLM fits -- see
+Details). A value near 1 indicates roughly symmetric curvature; large
+values (e.g. > 10) indicate a narrow, ridge-like peak. This is used as
+one of the risk factors in \code{\link{nutrigon_check}}.
+}
+\details{
+For \code{model_type = "glm"} fits, the Hessian is computed on the
+\strong{link scale}, consistent with how the optimum itself is located
+(see \code{?nutrigon_fit}). This means elongation values are directly
+comparable between \code{"lm"} and \code{"glm"} fits only insofar as both
+describe curvature on the scale each model actually estimates a
+quadratic on -- they are not automatically on a common footing with an
+\code{"lm"} fit of the same trait's raw values.
 }
 \examples{
 data(lee_drosophila)

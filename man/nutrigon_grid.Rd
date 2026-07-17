@@ -3,12 +3,15 @@
 \alias{nutrigon_grid}
 \title{Build a prediction grid inside the design hull for surface plotting}
 \usage{
-nutrigon_grid(fit, n = 120)
+nutrigon_grid(fit, n = 120, quiet = FALSE)
 }
 \arguments{
 \item{fit}{A \code{"nutrigon_fit"} object (from \code{\link{nutrigon_fit}}).}
 
 \item{n}{Grid resolution per axis (default 120).}
+
+\item{quiet}{Suppress the link-scale reminder message for GLM fits
+(default \code{FALSE}).}
 }
 \value{
 A data frame with columns named after the original \code{x_col} and
@@ -20,6 +23,21 @@ Constructs an evenly-spaced grid over the range of the fitted data,
 restricted to points inside the convex hull of the design, with model
 predictions attached. Intended for use with \code{ggplot2::geom_raster()}.
 }
+\section{GLM fits}{
+ when \code{fit} was produced with \code{model_type = "glm"}
+  (see \code{\link{nutrigon_fit}}), the \code{predicted} column is on the
+  \strong{link scale} (e.g. logit(p) for a binomial GLM, log(mu) for a
+  Poisson/quasi-Poisson GLM), not the original response scale. This is
+  deliberate and consistent with how the optimum itself was located (see
+  \code{?nutrigon_fit}, Details). A message is printed reminding you of
+  this every time \code{nutrigon_grid()} is called on a GLM fit; pass
+  \code{quiet = TRUE} to suppress it. If you want a response-scale
+  surface for plotting (e.g. predicted probabilities rather than
+  logit-odds), back-transform the \code{predicted} column yourself with
+  the appropriate inverse link, e.g. \code{plogis()} for a logit link or
+  \code{exp()} for a log link -- see Examples.
+}
+
 \examples{
 data(lee_drosophila)
 fit_lifespan <- nutrigon_fit(lee_drosophila, "protein_eaten", "carb_eaten",
@@ -27,7 +45,18 @@ fit_lifespan <- nutrigon_fit(lee_drosophila, "protein_eaten", "carb_eaten",
 grid_lifespan <- nutrigon_grid(fit_lifespan, n = 40)
 head(grid_lifespan)
 
+\donttest{
+# GLM example: predicted is on the logit scale; back-transform for plots
+# of predicted probability rather than logit-odds
+fit_glm <- nutrigon_fit(lee_drosophila, "protein_eaten", "carb_eaten",
+                         "dailyeggs", model_type = "glm",
+                         family = quasipoisson())
+grid_glm <- nutrigon_grid(fit_glm, n = 40)
+grid_glm$predicted_response <- exp(grid_glm$predicted)  # log link -> mu
+}
+
 }
 \seealso{
-\code{\link{nutrigon_hull}}, \code{\link{nutrigon_region_polygon}}
+\code{\link{nutrigon_hull}}, \code{\link{nutrigon_region_polygon}},
+\code{\link{nutrigon_fit}}
 }

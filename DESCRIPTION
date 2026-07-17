@@ -2,16 +2,23 @@ Package: nutrigon
 Title: Angular Separation Between Nutritional Optima
 Version: 0.1.0
 Authors@R: person("Juliano", "Morimoto", email = "juliano.morimoto@abdn.ac.uk", role = c("aut", "cre"), comment = c(ORCID = "0000-0003-3561-1920"))
-Description: Fits quadratic response surfaces to trait data collected under
-    the Geometric Framework for Nutrition and computes the angular separation
-    (theta) between the nutritional optima of two traits, with bootstrap
-    confidence intervals. Provides a simulation-based per-result reliability
-    diagnostic that compares a given result's risk-factor profile (curvature
-    elongation, distance to the angular boundary of the design, and angular
-    separation) against a pre-built validation grid of configurations with
-    known ground-truth bootstrap coverage. Includes the Lee et al. (2008)
-    Drosophila lifespan and fecundity dataset as a worked example. Methods
-    are described in Morimoto (2023) <doi:10.1086/723599>.
+Description: Fits response surfaces (ordinary least squares, generalized
+    linear models with any family including quasi-families, or linear
+    mixed-effects models) to trait data collected under the Geometric
+    Framework for Nutrition and computes the angular separation (theta)
+    between the nutritional optima of two traits, with bootstrap confidence
+    intervals. Provides local Gaussian and mean curvature and a surface-area
+    ratio for a fitted surface, and a simulation-based per-result
+    reliability diagnostic that compares a given result's risk-factor
+    profile (curvature elongation, distance to the angular boundary of the
+    design, and angular separation) against a pre-built validation grid of
+    configurations with known ground-truth bootstrap coverage. Includes the
+    Drosophila lifespan and fecundity dataset of Lee et al. (2008)
+    "Lifespan and reproduction in Drosophila: new insights from nutritional
+    geometry" <doi:10.1073/pnas.0710787105> as a worked example. Methods
+    are described in Morimoto (2023) "Nutrigonometry I: using right-angle
+    triangles to quantify nutritional trade-offs in performance landscapes"
+    <doi:10.1086/723599>.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
@@ -20,7 +27,8 @@ RoxygenNote: 7.3.2
 Depends: R (>= 4.1)
 Imports:
     stats,
-    grDevices
+    grDevices,
+    withr
 Suggests:
     ggplot2,
     ggdendro,
@@ -28,7 +36,10 @@ Suggests:
     patchwork,
     knitr,
     rmarkdown,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    lme4,
+    lmerTest,
+    pracma
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 URL: https://github.com/jmor2753/nutrigon

@@ -132,6 +132,43 @@ ggplot(grid_lifespan,
   theme(panel.grid = element_blank())
 ```
 
+## Local curvature and surface area
+
+`nutrigon_curvature()` computes local Gaussian and mean curvature of a
+fitted surface -- a different notion of "curvature" from the Hessian-based
+elongation ratio above. Elongation describes how stretched the peak is
+along its principal axes; Gaussian/mean curvature describe how much the
+surface itself bends at each point, treating it as a 2-manifold embedded
+in 3-space.
+
+```{r curvature}
+curv_lifespan <- nutrigon_curvature(fit_lifespan, n = 60)
+head(curv_lifespan$grid)
+
+cat(sprintf("Surface area ratio (fitted vs flat): %.3f\n",
+            curv_lifespan$surface_area_ratio))
+```
+
+A surface-area ratio near 1 indicates an almost-flat response; larger
+values indicate a more strongly bowl- or saddle-shaped surface. This uses
+\pkg{pracma} for numerical integration; if it is not installed,
+`surface_area_ratio` is `NA` with a warning.
+
+```{r curvature-plot, eval = requireNamespace("ggplot2", quietly = TRUE)}
+ggplot(curv_lifespan$grid,
+       aes(x = protein_eaten, y = carb_eaten, fill = Mean_curv)) +
+  geom_raster(interpolate = TRUE) +
+  geom_polygon(data = hull_lifespan,
+               aes(x = protein_eaten, y = carb_eaten),
+               fill = NA, colour = "black", linewidth = 0.5,
+               inherit.aes = FALSE) +
+  scale_fill_distiller(palette = "RdBu", name = "Mean\ncurvature") +
+  labs(x = "Protein (mg)", y = "Carbohydrate (mg)",
+       title = "Lifespan: local mean curvature") +
+  theme_bw(base_size = 12) +
+  theme(panel.grid = element_blank())
+```
+
 ## References
 
 Lee, K.P., Simpson, S.J., Clissold, F.J., Brooks, R., Ballard, J.W.O.,
@@ -139,6 +176,6 @@ Taylor, P.W., Soran, N. & Raubenheimer, D. (2008). Lifespan and
 reproduction in *Drosophila*: new insights from nutritional geometry.
 *PNAS*, 105(7), 2498-2503.
 
-Morimoto, J. (in review). Formalising statistical inference for
-Nutrigonometry: bootstrap confidence intervals for the angular separation
-between nutritional optima. *Methods in Ecology and Evolution*.
+Morimoto, J. (in review). Bootstrap inference for angular separation
+between constrained optima of nutritional ecology response surfaces.
+*Environmental and Ecological Statistics*.

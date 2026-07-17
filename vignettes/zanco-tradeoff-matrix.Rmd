@@ -266,6 +266,54 @@ ggplot() +
         legend.position = "right")
 ```
 
+## Refitting viability with a quasibinomial GLM
+
+The matrix above fits every surface, including viability, with ordinary
+least squares on the raw proportion `Prop_viable` -- this matches the
+original published analysis and is what `zanco_tradeoff_matrix` was built
+with. But viability is naturally a **bounded proportion** derived from
+binomial counts (`Total_Adults` out of `Total_Eggs` per vial), with visibly
+more spread than a binomial count alone would predict -- exactly the
+situation a **quasibinomial** GLM is built for: it models the proportion on
+the logit scale while inflating standard errors to account for
+overdispersion, without requiring individual-egg-level data.
+
+`nutrigon_fit()` and `nutrigon_compare()` support this directly via
+`model_type = "glm"` and `family = quasibinomial()`. As one example, refit
+the Melbourne 18\u00b1C viability surface both ways and compare:
+
+```{r glm-refit}
+mel18 <- zanco_survival[zanco_survival$Temperature == "18fluc" &
+                         zanco_survival$Population  == "Melbourne", ]
+
+fit_ols  <- zanco_tradeoff_matrix$surfaces[["viability_18fluc_Melbourne"]]
+fit_quasi <- nutrigon_fit(mel18, "Prot", "Carb", "Prop_viable",
+                           design_id_col = "design_id",
+                           model_type = "glm", family = quasibinomial())
+
+data.frame(
+  fit         = c("lm (shipped matrix)", "glm, quasibinomial"),
+  theta_deg   = c(fit_ols$optimum$theta, fit_quasi$optimum$theta),
+  elongation  = c(fit_ols$elongation,    fit_quasi$elongation)
+)
+```
+
+The optimum's location can shift somewhat between the two fits: the OLS
+surface is quadratic in the raw proportion, while the quasibinomial
+surface is quadratic on the **logit** scale (see `?nutrigon_fit`, Details)
+-- these are genuinely different statistical models of the same data, not
+two numerical routes to the same answer. `nutrigon_curvature()` and
+`nutrigon_grid()` both work identically on the quasibinomial fit; for
+`nutrigon_grid()`, remember that `predicted` is then on the logit scale
+(see `?nutrigon_grid`, GLM fits section).
+
+A full quasibinomial refit of all 6 viability surfaces (paired with the
+existing `lm`-fitted wing-size surfaces via `nutrigon_compare()`'s
+`model_type1`/`model_type2`) would give a more principled version of the
+matrix above, at the cost of re-running the ~66-comparison bootstrap. That
+full refit is not included here to keep the vignette fast to build; the
+single-surface comparison above illustrates the mechanics.
+
 ## Headline strip chart
 
 ```{r headline-plot, eval = requireNamespace("ggplot2", quietly = TRUE)}
