@@ -25,7 +25,7 @@ Since the previous submission the package also gained `nutrigon_matrix()`,
 0 errors | 0 warnings | 1 note
 
 * checking CRAN incoming feasibility ... NOTE
-  Maintainer: 'Juliano Morimoto <juliano.morimoto@abdn.ac.uk>'
+  Maintainer: 'Juliano Morimoto <juliano.morimoto@gmail.com>'
   New submission
 
 ## Notes for the CRAN team
