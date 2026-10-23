@@ -1,86 +1,91 @@
-# ============================================================================
-# compare-generalized.R
-#
-# Generalized nutrigon_compare(). Same bootstrap logic as before, but each
-# surface can now be fit with its own model_type ("lm"/"glm"/"lmer"), since
-# two traits being compared often need different distributional families
-# (e.g. Example: viability as a binomial GLM, wing size as a Gaussian lm --
-# this was already handled by hand in the applied scripts; this generalises
-# it into the function itself).
-#
-# CHANGE FROM PREVIOUS VERSION:
-#   - New arguments: model_type1, model_type2 (default "lm" each, so
-#     existing calls with no model_type specified behave identically to
-#     before), re_formula1, re_formula2, and ...1 / ...2 for family/weights/
-#     etc. forwarded separately to each surface's fitter.
-#   - Internally: .fit_quadratic() -> .fit_surface() (see internal-fit.R),
-#     called with each surface's own model_type/re_formula/extra args.
-#   - theta_hat, ci, boot_diffs, etc: UNCHANGED in meaning and computation.
-#     No change to the bootstrap resampling scheme itself.
-# ============================================================================
-
 #' Compare two nutritional optima and bootstrap the angular separation
 #'
-#' Fits two quadratic response surfaces and computes the angular separation
-#' theta between their nutritional optima, together with a bootstrap
-#' percentile confidence interval. Supports paired resampling (both traits
-#' measured on the same individuals) and unpaired resampling with optional
-#' resampling by design point. The two surfaces may be fitted with different
-#' model families (e.g. surface 1 as an ordinary least squares fit, surface
-#' 2 as a binomial GLM) -- see `model_type1`/`model_type2`.
+#' Fits two quadratic response surfaces, locates each nutritional optimum
+#' with the hybrid estimator (closed-form stationary point when admissible,
+#' otherwise a constrained Monte Carlo search with the `max` rule), and
+#' computes the angular separation theta between the two optima together
+#' with a percentile bootstrap confidence interval. Each bootstrap replicate
+#' refits both surfaces, so uncertainty in the surface coefficients is
+#' propagated into the location of each optimum and into theta.
+#'
+#' @section Resampling:
+#' `resample = "case"` (default) draws observations (rows) with replacement
+#' from the whole dataset. This is the scheme whose coverage was validated
+#' by simulation. With `paired = TRUE` the same rows are used for both
+#' traits, which preserves the covariance between the two fitted surfaces
+#' when both traits are measured on the same individuals; with
+#' `paired = FALSE` each trait is resampled independently.
+#' `resample = "stratified"` resamples within each design point (requires
+#' `design_id_col1`/`design_id_col2`), keeping the number of observations
+#' per design point fixed. It is useful for balanced designs with several
+#' replicates per design point, but its coverage has not been separately
+#' validated.
+#'
+#' @section What theta measures:
+#' theta is the difference between the polar angles of the two optima,
+#' i.e. the difference in nutrient balance (e.g. protein:carbohydrate
+#' direction). It does not measure the radial distance of the optima from
+#' the origin (total intake) or the fitness cost of feeding between them.
+#' Report it with the locations of the optima (`point1`, `point2`).
 #'
 #' @param data1,data2 Data frames for traits 1 and 2. Can be the same object
 #'   if both traits were measured on the same individuals.
 #' @param x1_col,y1_col,z1_col Column names for surface 1.
 #' @param x2_col,y2_col,z2_col Column names for surface 2.
-#' @param design_id_col1,design_id_col2 Design-point ID columns (can be
-#'   `NULL`). Only used when `paired = FALSE`.
+#' @param design_id_col1,design_id_col2 Design-point ID columns. Required
+#'   for `resample = "stratified"`; otherwise optional.
 #' @param paired `TRUE` (default) if both traits were measured on the same
-#'   individuals (resamples individuals jointly, using `data1`/`data2` row
-#'   correspondence). `FALSE` for unpaired data, resampled independently
-#'   (optionally within design points via `design_id_col1`/`design_id_col2`).
+#'   individuals (rows of `data1` and `data2` must correspond); `FALSE` for
+#'   unpaired data.
+#' @param resample `"case"` (default, validated) or `"stratified"`. See
+#'   the Resampling section.
 #' @param peak1,peak2 `TRUE` to locate maxima; `FALSE` for minima.
 #' @param model_type1,model_type2 One of `"lm"` (default), `"glm"`, or
-#'   `"lmer"`, for surfaces 1 and 2 respectively. Need not match -- e.g.
-#'   `model_type1 = "glm"` with `family1 = binomial()` for a viability
-#'   surface, `model_type2 = "lm"` for a continuous wing-size surface. See
-#'   [nutrigon_fit()] for details on how each model type locates its
-#'   optimum.
+#'   `"lmer"`, for surfaces 1 and 2 respectively. See [nutrigon_fit()].
 #' @param re_formula1,re_formula2 Random-effects formula strings, required
-#'   only when the corresponding `model_type` is `"lmer"`. See
-#'   [nutrigon_fit()].
-#' @param re_group_cols1,re_group_cols2 Character vector(s) of column
-#'   name(s) in `data1`/`data2` that the corresponding `re_formula`
-#'   refers to as grouping factors. Required whenever the corresponding
-#'   `re_formula` is supplied. See [nutrigon_fit()].
-#' @param family1,family2 Convenience arguments forwarded as `family = ` to
-#'   [stats::glm()] when the corresponding `model_type` is `"glm"`. Ignored
-#'   otherwise. For finer control (e.g. `weights = `, `control = `), use
-#'   `extra_args1`/`extra_args2` instead/in addition.
-#' @param extra_args1,extra_args2 Named lists of further arguments forwarded
-#'   to the underlying fitter for surfaces 1 and 2 respectively (e.g.
-#'   `list(weights = ..., control = ...)`).
-#' @param B Number of bootstrap resamples (default 200; use 500 for
-#'   publication-quality results).
+#'   only when the corresponding `model_type` is `"lmer"`.
+#' @param re_group_cols1,re_group_cols2 Grouping column name(s) referred to
+#'   by the corresponding `re_formula`.
+#' @param family1,family2 Forwarded as `family = ` to [stats::glm()] when
+#'   the corresponding `model_type` is `"glm"`.
+#' @param extra_args1,extra_args2 Named lists of further arguments for the
+#'   underlying fitters (e.g. `list(weights = ...)`).
+#' @param B Number of bootstrap resamples (default 500).
+#' @param conf_level Confidence level of the percentile interval (default
+#'   0.95).
 #' @param n_cloud Monte Carlo fallback cloud size.
-#' @param n_reps_cloud Number of MC draws per replicate.
-#' @param seed Optional random seed for reproducibility.
+#' @param n_reps_cloud Number of Monte Carlo draws per estimate.
+#' @param seed Optional random seed (set locally; the global RNG state is
+#'   restored on exit).
 #'
 #' @return An object of class `"nutrigon_comparison"`, a list with:
 #'   \describe{
-#'     \item{theta_hat}{Point estimate of angular separation (degrees).}
-#'     \item{ci}{Named vector `c(lower_95, upper_95)` for the 95\% percentile
-#'       bootstrap CI.}
-#'     \item{theta1, theta2}{Component angles (degrees from origin).}
-#'     \item{boot_diffs}{Vector of `B` bootstrap angular separations.}
-#'     \item{n_fallback}{Number of bootstrap resamples that failed (and were
-#'       excluded from the CI).}
+#'     \item{theta_hat}{Point estimate of angular separation (degrees),
+#'       `|theta1 - theta2|`.}
+#'     \item{ci}{Percentile bootstrap CI for theta (unsigned), named e.g.
+#'       `c(lower_95, upper_95)`.}
+#'     \item{theta1, theta2}{Polar angles of the two optima (degrees).}
+#'     \item{point1, point2}{Locations of the two optima, `c(x, y)`, in the
+#'       original nutrient units.}
+#'     \item{used_fallback1, used_fallback2}{Whether the Monte Carlo
+#'       fallback located each full-data optimum.}
+#'     \item{angular_support}{List with `surface1` and `surface2`, each
+#'       `c(theta_min, theta_max)`: the angular range of that surface's
+#'       design hull (degrees). Used by [nutrigon_check()].}
+#'     \item{boot_diffs}{The `B` bootstrap values of theta (`NA` for failed
+#'       replicates).}
+#'     \item{boot_signed}{The `B` bootstrap values of `theta1 - theta2`.}
+#'     \item{fallback_rate}{Proportion of successful bootstrap replicates in
+#'       which at least one optimum required the Monte Carlo fallback.}
+#'     \item{n_failed}{Number of bootstrap replicates that failed (e.g. a
+#'       rank-deficient refit) and were excluded.}
+#'     \item{n_fallback}{Deprecated alias of `n_failed`, kept for
+#'       compatibility with version 0.1.0.}
+#'     \item{B, conf_level, paired, resample}{Settings used.}
 #'   }
 #'
 #' @examples
 #' data(lee_drosophila)
-#'
-#' # Both lm() (default) -- identical behaviour to previous package versions
 #' result <- nutrigon_compare(
 #'   lee_drosophila, "protein_eaten", "carb_eaten", "lifespan",
 #'   lee_drosophila, "protein_eaten", "carb_eaten", "dailyeggs",
@@ -90,52 +95,64 @@
 #' print(result)
 #'
 #' \donttest{
-#' # Mixed model types: quasi-Poisson GLM for egg count, lm for lifespan
+#' # Different model types for the two surfaces
 #' result_glm <- nutrigon_compare(
 #'   lee_drosophila, "protein_eaten", "carb_eaten", "lifespan",
 #'   lee_drosophila, "protein_eaten", "carb_eaten", "dailyeggs",
-#'   design_id_col1 = "treatment", design_id_col2 = "treatment",
 #'   paired = TRUE, B = 50, seed = 1,
 #'   model_type2 = "glm", family2 = quasipoisson()
 #' )
 #' }
 #'
-#' @seealso [nutrigon_fit()], [nutrigon_check()]
+#' @seealso [nutrigon_fit()], [nutrigon_check()], [nutrigon_equivalence()]
 #' @export
 nutrigon_compare <- function(data1, x1_col, y1_col, z1_col,
-                              data2, x2_col, y2_col, z2_col,
-                              design_id_col1 = NULL,
-                              design_id_col2 = NULL,
-                              paired         = TRUE,
-                              peak1          = TRUE,
-                              peak2          = TRUE,
-                              model_type1    = c("lm", "glm", "lmer"),
-                              model_type2    = c("lm", "glm", "lmer"),
-                              re_formula1    = NULL,
-                              re_formula2    = NULL,
-                              re_group_cols1 = NULL,
-                              re_group_cols2 = NULL,
-                              family1        = NULL,
-                              family2        = NULL,
-                              extra_args1    = list(),
-                              extra_args2    = list(),
-                              B              = 200,
-                              n_cloud        = 500,
-                              n_reps_cloud   = 5,
-                              seed           = NULL) {
+                             data2, x2_col, y2_col, z2_col,
+                             design_id_col1 = NULL,
+                             design_id_col2 = NULL,
+                             paired         = TRUE,
+                             resample       = c("case", "stratified"),
+                             peak1          = TRUE,
+                             peak2          = TRUE,
+                             model_type1    = c("lm", "glm", "lmer"),
+                             model_type2    = c("lm", "glm", "lmer"),
+                             re_formula1    = NULL,
+                             re_formula2    = NULL,
+                             re_group_cols1 = NULL,
+                             re_group_cols2 = NULL,
+                             family1        = NULL,
+                             family2        = NULL,
+                             extra_args1    = list(),
+                             extra_args2    = list(),
+                             B              = 500,
+                             conf_level     = 0.95,
+                             n_cloud        = 500,
+                             n_reps_cloud   = 5,
+                             seed           = NULL) {
 
   model_type1 <- match.arg(model_type1)
   model_type2 <- match.arg(model_type2)
+  resample    <- match.arg(resample)
 
-  # Fold family1/family2 convenience args into the extra_args lists that
-  # get forwarded to .fit_surface()'s ... -- keeps the common case (just
-  # setting a family) simple while still allowing full control via
-  # extra_args for anything else (weights, offset, control, etc.)
+  if (!is.numeric(conf_level) || conf_level <= 0 || conf_level >= 1)
+    stop("conf_level must be strictly between 0 and 1.")
+  if (paired && nrow(data1) != nrow(data2))
+    stop("paired = TRUE requires data1 and data2 to have the same rows ",
+         "(the same individuals). Got ", nrow(data1), " and ", nrow(data2),
+         " rows; use paired = FALSE for traits measured on different units.")
+  if (resample == "stratified") {
+    if (is.null(design_id_col1) || is.null(design_id_col2))
+      stop("resample = \"stratified\" requires design_id_col1 and design_id_col2.")
+    for (cc in list(list(data1, design_id_col1), list(data2, design_id_col2)))
+      if (!cc[[2]] %in% names(cc[[1]]))
+        stop("Design-point column \"", cc[[2]], "\" not found in data.")
+  }
+
   if (!is.null(family1)) extra_args1$family <- family1
   if (!is.null(family2)) extra_args2$family <- family2
 
   fit_one <- function(data, x_col, y_col, z_col, model_type, re_formula,
-                       re_group_cols, extra) {
+                      re_group_cols, extra) {
     do.call(.fit_surface,
             c(list(data = data, x_col = x_col, y_col = y_col, z_col = z_col,
                    model_type = model_type, re_formula = re_formula,
@@ -143,25 +160,13 @@ nutrigon_compare <- function(data1, x1_col, y1_col, z1_col,
               extra))
   }
 
-  # Seeding via withr::local_seed() rather than a hand-rolled
-  # save/assign/.GlobalEnv pattern: CRAN policy prohibits packages from
-  # writing to .GlobalEnv (see CRAN Repository Policy and the CRAN
-  # Cookbook's Code Issues chapter), and this is enforced by an automated
-  # check on the package's own source text -- even a strictly
-  # save-then-restore-on-exit pattern (which never leaves any net change
-  # behind) is flagged if `assign(..., envir = .GlobalEnv)` /
-  # `.GlobalEnv$.Random.seed <-` appears literally in the package's R
-  # code. withr::local_seed() performs the identical save/restore
-  # mechanism, but since that pattern lives inside the withr package
-  # (itself already an accepted CRAN dependency) rather than in
-  # nutrigon's own source, it does not trigger the check.
   if (!is.null(seed)) withr::local_seed(seed)
 
-  # Point estimates
+  # ---- point estimates ---------------------------------------------------
   fit1 <- fit_one(data1, x1_col, y1_col, z1_col, model_type1, re_formula1,
-                   re_group_cols1, extra_args1)
+                  re_group_cols1, extra_args1)
   fit2 <- fit_one(data2, x2_col, y2_col, z2_col, model_type2, re_formula2,
-                   re_group_cols2, extra_args2)
+                  re_group_cols2, extra_args2)
   opt1 <- .locate_optimum(fit1, peak1, n_cloud, n_reps_cloud)
   opt2 <- .locate_optimum(fit2, peak2, n_cloud, n_reps_cloud)
 
@@ -169,76 +174,105 @@ nutrigon_compare <- function(data1, x1_col, y1_col, z1_col,
   theta2    <- .theta_deg(opt2$x, opt2$y)
   theta_hat <- abs(theta1 - theta2)
 
-  # Bootstrap
-  resample_one <- function(data, id_col) {
-    if (!is.null(id_col)) {
-      ids <- unique(data[[id_col]])
-      do.call(rbind, lapply(ids, function(id) {
-        sub <- data[data[[id_col]] == id, ]
-        sub[sample(nrow(sub), nrow(sub), replace = TRUE), ]
-      }))
-    } else {
-      data[sample(nrow(data), nrow(data), replace = TRUE), ]
-    }
+  support1 <- .angular_support_xy(fit1$data$.x, fit1$data$.y)
+  support2 <- .angular_support_xy(fit2$data$.x, fit2$data$.y)
+
+  # ---- resampling --------------------------------------------------------
+  strat_index <- function(groups) {
+    idx <- split(seq_along(groups), groups)
+    unlist(lapply(idx, function(ii) ii[sample.int(length(ii), length(ii),
+                                                   replace = TRUE)]),
+           use.names = FALSE)
+  }
+  draw_rows <- function(data, id_col) {
+    if (resample == "stratified") strat_index(data[[id_col]]) else
+      sample.int(nrow(data), nrow(data), replace = TRUE)
   }
 
-  boot_diffs <- numeric(B)
-  n_fail     <- 0L
+  boot_signed   <- rep(NA_real_, B)
+  boot_fallback <- rep(NA, B)
 
   for (b in seq_len(B)) {
-    tryCatch({
+    res_b <- tryCatch({
       if (paired) {
-        idx <- sample(nrow(data1), nrow(data1), replace = TRUE)
-        b1 <- data1[idx, ]; b2 <- data2[idx, ]
+        idx <- draw_rows(data1, design_id_col1)
+        b1 <- data1[idx, , drop = FALSE]; b2 <- data2[idx, , drop = FALSE]
       } else {
-        b1 <- resample_one(data1, design_id_col1)
-        b2 <- resample_one(data2, design_id_col2)
+        b1 <- data1[draw_rows(data1, design_id_col1), , drop = FALSE]
+        b2 <- data2[draw_rows(data2, design_id_col2), , drop = FALSE]
       }
       f1 <- fit_one(b1, x1_col, y1_col, z1_col, model_type1, re_formula1,
-                     re_group_cols1, extra_args1)
+                    re_group_cols1, extra_args1)
       f2 <- fit_one(b2, x2_col, y2_col, z2_col, model_type2, re_formula2,
-                     re_group_cols2, extra_args2)
+                    re_group_cols2, extra_args2)
       o1 <- .locate_optimum(f1, peak1, n_cloud, n_reps_cloud)
       o2 <- .locate_optimum(f2, peak2, n_cloud, n_reps_cloud)
-      boot_diffs[b] <- abs(.theta_deg(o1$x, o1$y) - .theta_deg(o2$x, o2$y))
-    }, error = function(e) {
-      boot_diffs[b] <<- NA_real_
-      n_fail <<- n_fail + 1L
-    })
+      c(.theta_deg(o1$x, o1$y) - .theta_deg(o2$x, o2$y),
+        o1$used_fallback || o2$used_fallback)
+    }, error = function(e) c(NA_real_, NA))
+    boot_signed[b]   <- res_b[1]
+    boot_fallback[b] <- as.logical(res_b[2])
   }
 
-  valid <- boot_diffs[!is.na(boot_diffs)]
-  ci    <- if (length(valid) >= 10L) stats::quantile(valid, c(0.025, 0.975)) else
-             c(NA_real_, NA_real_)
-  names(ci) <- c("lower_95", "upper_95")
+  boot_diffs <- abs(boot_signed)
+  valid      <- boot_diffs[!is.na(boot_diffs)]
+  n_failed   <- sum(is.na(boot_diffs))
+  alpha      <- 1 - conf_level
+  ci <- if (length(valid) >= 10L)
+    stats::quantile(valid, c(alpha / 2, 1 - alpha / 2), names = FALSE) else
+      c(NA_real_, NA_real_)
+  pct <- format(100 * conf_level, trim = TRUE)
+  names(ci) <- paste0(c("lower_", "upper_"), pct)
+  if (n_failed > 0.2 * B)
+    warning(n_failed, " of ", B, " bootstrap replicates failed; the ",
+            "interval may be unreliable.", call. = FALSE)
 
   structure(
-    list(theta_hat  = theta_hat,
-         ci         = ci,
-         theta1     = theta1,
-         theta2     = theta2,
-         boot_diffs = boot_diffs,
-         n_fallback = n_fail,
-         B          = B,
-         z1_col     = z1_col,
-         z2_col     = z2_col,
-         model_type1 = model_type1,
-         model_type2 = model_type2),
+    list(theta_hat       = theta_hat,
+         ci              = ci,
+         theta1          = theta1,
+         theta2          = theta2,
+         point1          = c(x = opt1$x, y = opt1$y),
+         point2          = c(x = opt2$x, y = opt2$y),
+         used_fallback1  = opt1$used_fallback,
+         used_fallback2  = opt2$used_fallback,
+         angular_support = list(surface1 = support1, surface2 = support2),
+         boot_diffs      = boot_diffs,
+         boot_signed     = boot_signed,
+         fallback_rate   = mean(boot_fallback, na.rm = TRUE),
+         n_failed        = n_failed,
+         n_fallback      = n_failed,
+         B               = B,
+         conf_level      = conf_level,
+         paired          = paired,
+         resample        = resample,
+         z1_col          = z1_col,
+         z2_col          = z2_col,
+         model_type1     = model_type1,
+         model_type2     = model_type2),
     class = "nutrigon_comparison"
   )
 }
 
 #' @export
 print.nutrigon_comparison <- function(x, ...) {
-  cat("Nutrigonometry angular separation\n")
+  pct <- if (is.null(x$conf_level)) "95" else format(100 * x$conf_level, trim = TRUE)
+  cat("Angular separation between nutritional optima\n")
   cat(sprintf("  Trait 1 (%s, %s): theta = %.2f degrees\n",
               x$z1_col, x$model_type1, x$theta1))
   cat(sprintf("  Trait 2 (%s, %s): theta = %.2f degrees\n",
               x$z2_col, x$model_type2, x$theta2))
-  cat(sprintf("  Angular separation: %.2f degrees\n",   x$theta_hat))
-  cat(sprintf("  95%% CI: [%.2f, %.2f] degrees\n",
-              x$ci["lower_95"], x$ci["upper_95"]))
-  cat(sprintf("  Bootstrap: B=%d, %d failed resamples\n",
-              x$B, x$n_fallback))
+  cat(sprintf("  Angular separation: %.2f degrees\n", x$theta_hat))
+  cat(sprintf("  %s%% CI: [%.2f, %.2f] degrees\n", pct, x$ci[1], x$ci[2]))
+  if (!is.null(x$resample))
+    cat(sprintf("  Bootstrap: B = %d (%s, %s resampling), %d failed\n",
+                x$B, if (isTRUE(x$paired)) "paired" else "unpaired",
+                x$resample, x$n_failed))
+  if (!is.null(x$fallback_rate) && is.finite(x$fallback_rate))
+    cat(sprintf("  Monte Carlo fallback used in %.0f%% of replicates\n",
+                100 * x$fallback_rate))
+  if (is.finite(x$theta_hat) && x$theta_hat < 5)
+    cat("  Note: angle < 5 degrees; the unsigned interval cannot show that\n",
+        "  the optima are aligned. See ?nutrigon_equivalence.\n", sep = "")
   invisible(x)
 }

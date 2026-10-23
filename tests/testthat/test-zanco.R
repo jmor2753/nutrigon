@@ -98,7 +98,7 @@ test_that("an unpaired nutrigon_compare() call on Zanco data reproduces a shippe
     sub_s, "Prot", "Carb", "Prop_viable",
     sub_w, "Prot", "Carb", "WingSize",
     design_id_col1 = "design_id", design_id_col2 = "design_id",
-    paired = FALSE, B = 30, seed = 0
+    paired = FALSE, resample = "stratified", B = 30, seed = 0
   )
 
   shipped <- zanco_tradeoff_matrix$pairwise

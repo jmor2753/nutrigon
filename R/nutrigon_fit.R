@@ -1,21 +1,9 @@
 # ============================================================================
-# fit-generalized.R
+# nutrigon_fit.R
 #
-# Generalized nutrigon_fit(): adds model_type ("lm" | "glm" | "lmer") and
-# forwards ... to the underlying fitter (family = for glm; random-effects
-# controls for lmer via re_formula + ...). Same return shape as before
-# EXCEPT:
-#   - $model is now a nutrigon_*_fit WRAPPER, not a raw lm/glm/lmer object.
-#     If you need the raw fitted model (e.g. for summary(), plotting
-#     residuals, etc.), use $model$fit.
-#   - New field $model_type ("lm"/"glm"/"lmer") for introspection.
-#
-# BREAKING CHANGE relative to the old package: `fit$model` used to be an
-# lm object directly, so `coef(fit$model)` worked. It no longer does, by
-# design -- accessing coefficients directly on a glm() bypasses the link-
-# scale convention this generalisation depends on, and is a silent-failure
-# risk for anyone who copies old lm-specific code against a glm fit. Use
-# nutrigon_coefs(fit) (new, exported) or fit$model$fit for the raw object.
+# fit$model is a nutrigon_*_fit wrapper (not a raw lm/glm/merMod object);
+# the raw fitted model is fit$model$fit. Use nutrigon_coefs(fit) for the
+# link-scale quadratic coefficients.
 # ============================================================================
 
 #' Fit a quadratic response surface and locate the nutritional optimum
@@ -62,9 +50,10 @@
 #' @param y_col Name of the carbohydrate (y-axis nutrient) column.
 #' @param z_col Name of the trait (response) column.
 #' @param design_id_col Name of a column identifying distinct design points
-#'   (e.g. treatment, or rail x concentration combination). Used for
-#'   within-design-point bootstrap resampling in [nutrigon_compare()]. If
-#'   `NULL`, plain case-level resampling is used there instead.
+#'   (e.g. treatment, or rail x concentration combination). Stored with the
+#'   fit for reference; design-point identifiers are used by
+#'   [nutrigon_compare()] only with `resample = "stratified"` and by
+#'   [nutrigon_build_grid()] for design-matched grids.
 #' @param model_type One of `"lm"` (default), `"glm"`, or `"lmer"`. See
 #'   Details.
 #' @param re_formula For `model_type = "lmer"` only: the random-effects

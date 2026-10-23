@@ -100,14 +100,12 @@ nutrigon_curvature <- function(fit, n = 50, quiet = FALSE) {
 # ============================================================================
 # Internal: curvature and surface-area machinery.
 #
-# Ported from a standalone script computing Gaussian/mean curvature and a
-# surface-area ratio for a quadratic z = f(x, y) treated as a 2-manifold in
-# 3-space (first/second fundamental forms). The only change from the
-# original is that coefficients now come from .get_link_coefs(), so the
-# same code works for lm/glm/lmer fits alike, on the scale each model
-# actually estimates a quadratic on (see internal-fit.R design note).
+# Gaussian/mean curvature and a surface-area ratio for a quadratic
+# z = f(x, y) treated as a 2-manifold in 3-space (first/second fundamental
+# forms). Coefficients come from .get_link_coefs(), so the same code works
+# for lm/glm/lmer fits, on the scale each model estimates a quadratic on.
 #
-# Coefficient naming: the original script used a/b/c/d/e for the quadratic
+# Coefficient naming: a/b/c/d/e for the quadratic
 #   z = a.x^2 + b.y^2 + c.x + d.y + e.xy  (+ intercept, irrelevant to
 # curvature). These map onto the package's canonical coefficient names as:
 #   a <- cf["I(.x^2)"]   b <- cf["I(.y^2)"]   e <- cf[".x:.y"]

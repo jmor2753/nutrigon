@@ -50,11 +50,14 @@ test_that("nutrigon_check works with an explicitly supplied validation grid", {
     paired = TRUE, B = 30, seed = 1
   )
 
-  check <- nutrigon_check(result,
-                           elong1 = nutrigon_elongation(fit1),
-                           elong2 = nutrigon_elongation(fit2),
-                           k = 10,
-                           validation_grid = nutrigon_validation_grid)
+  # The shipped grid uses a generic design, so a design-mismatch warning
+  # is expected for the Lee et al. design.
+  check <- suppressWarnings(
+    nutrigon_check(result,
+                   elong1 = nutrigon_elongation(fit1),
+                   elong2 = nutrigon_elongation(fit2),
+                   k = 10,
+                   validation_grid = nutrigon_validation_grid))
 
   expect_true(check$estimated_coverage >= 0 && check$estimated_coverage <= 1)
   expect_true(is.character(check$flag))
@@ -76,19 +79,22 @@ test_that("nutrigon_check defaults to the shipped grid without rebuilding", {
     paired = TRUE, B = 30, seed = 1
   )
 
-  # No validation_grid argument supplied at all -- should use the shipped
-  # grid directly and NOT print the "Building a fresh validation grid"
-  # message (which only fires when validation_grid = NULL is explicit).
-  expect_no_message(
-    check_default <- nutrigon_check(result,
-                                     elong1 = nutrigon_elongation(fit1),
-                                     elong2 = nutrigon_elongation(fit2))
+  # No validation_grid supplied: uses the shipped grid (no rebuild message)
+  # and warns that it was simulated on a different design.
+  expect_warning(
+    expect_no_message(
+      check_default <- nutrigon_check(result,
+                                      elong1 = nutrigon_elongation(fit1),
+                                      elong2 = nutrigon_elongation(fit2))
+    ),
+    "different|angular support"
   )
 
-  check_explicit <- nutrigon_check(result,
-                                    elong1 = nutrigon_elongation(fit1),
-                                    elong2 = nutrigon_elongation(fit2),
-                                    validation_grid = nutrigon_validation_grid)
+  check_explicit <- suppressWarnings(
+    nutrigon_check(result,
+                   elong1 = nutrigon_elongation(fit1),
+                   elong2 = nutrigon_elongation(fit2),
+                   validation_grid = nutrigon_validation_grid))
 
   # Defaulting should give identical results to passing the shipped grid
   # explicitly (same object, same neighbours).
@@ -97,6 +103,7 @@ test_that("nutrigon_check defaults to the shipped grid without rebuilding", {
 })
 
 test_that("nutrigon_check with validation_grid = NULL rebuilds from scratch and messages", {
+  skip_on_cran()
   data(lee_drosophila)
 
   fit1 <- nutrigon_fit(lee_drosophila, "protein_eaten", "carb_eaten",
@@ -110,14 +117,15 @@ test_that("nutrigon_check with validation_grid = NULL rebuilds from scratch and 
     paired = TRUE, B = 30, seed = 1
   )
 
-  # Explicit NULL is the escape hatch for a from-scratch rebuild; keep n
-  # tiny here purely so the test suite stays fast.
+  # Explicit NULL rebuilds a small generic grid; it warns because the
+  # generic design differs from the Lee et al. design.
   expect_message(
-    check_fresh <- nutrigon_check(result,
-                                   elong1 = nutrigon_elongation(fit1),
-                                   elong2 = nutrigon_elongation(fit2),
-                                   validation_grid = NULL,
-                                   k = 3),
+    check_fresh <- suppressWarnings(
+      nutrigon_check(result,
+                     elong1 = nutrigon_elongation(fit1),
+                     elong2 = nutrigon_elongation(fit2),
+                     validation_grid = NULL,
+                     k = 3)),
     "Building a fresh validation grid"
   )
   expect_true(check_fresh$estimated_coverage >= 0 &&

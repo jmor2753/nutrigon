@@ -1,18 +1,14 @@
 # ============================================================================
 # internal-locate-optimum.R
 #
-# Generalized version of .locate_optimum(). Same algorithm as before
-# (closed-form stationary point when admissible; Monte Carlo fallback
-# otherwise), but reads coefficients and predictions through the
-# .get_link_coefs() / .predict_link() dispatch layer (internal-fit.R)
-# instead of calling stats::coef() / stats::predict() directly. This is
-# the ONLY change: no change to the admissibility rule, the fallback
-# sampling scheme, or the region/centrality logic.
+# Hybrid optimum estimator: closed-form stationary point when admissible
+# (inside the design hull, correct curvature sign); otherwise a Monte Carlo
+# search over the hull, summarised by the point with the highest (or
+# lowest) fitted value ("max" rule). Coefficients and predictions are read
+# through the .get_link_coefs() / .predict_link() dispatch layer
+# (internal-fit.R), so the same algorithm serves lm, glm and lmer fits.
 # ============================================================================
 
-# Locate the optimum of a fitted quadratic (closed-form or MC fallback).
-# `fit` is the list returned by .fit_surface(): $model_obj, $data, $hull.
-# Returns a list: x, y, used_fallback (logical).
 .locate_optimum <- function(fit, peak = TRUE, n_cloud = 500, n_reps = 5,
                              region_quantile = NULL) {
   if (is.null(region_quantile))
