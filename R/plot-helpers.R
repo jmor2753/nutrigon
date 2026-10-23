@@ -7,16 +7,10 @@
 # to plot are on the link scale, not the original trait's natural scale,
 # whenever model_type = "glm" was used.
 #
-# nutrigon_hull() and nutrigon_region_polygon() needed NO computational
-# change -- they only touch fit$hull / fit$region, which are already plain
-# data frames of (x, y) coordinates regardless of model_type (the values
-# living inside fit$region$predicted-equivalent columns, where relevant,
-# were already computed via .predict_link() inside nutrigon_fit(), so
-# fit$region itself needs no further transformation here). They only
-# gain a one-line reminder message for the glm case, since the SHAPE of
-# the region polygon is still on the link scale and a user plotting it
-# alongside a response-scale raster (if they built one by hand) could
-# otherwise be misled.
+# nutrigon_hull() and nutrigon_region_polygon() only use fit$hull and
+# fit$region, which are plain (x, y) data frames for every model_type. For
+# glm fits they print a reminder that the region was defined on the link
+# scale.
 # ============================================================================
 
 #' Build a prediction grid inside the design hull for surface plotting
@@ -79,10 +73,7 @@ nutrigon_grid <- function(fit, n = 120, quiet = FALSE) {
   gd <- gd[inside, ]
 
   # .predict_link() dispatches on fit$model's class (nutrigon_lm_fit /
-  # nutrigon_glm_fit / nutrigon_lmer_fit) -- see internal-fit.R. This
-  # replaces the previous direct stats::predict(fit$model, ...) call,
-  # which broke once fit$model became a wrapper rather than a raw lm
-  # object.
+  # nutrigon_glm_fit / nutrigon_lmer_fit) -- see internal-fit.R.
   gd$predicted <- .predict_link(fit$model, newdata = gd)
 
   if (fit$model_type == "glm" && !quiet) {

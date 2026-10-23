@@ -1,6 +1,5 @@
 # ============================================================================
-# Internal helpers -- not exported, not documented for users.
-# Ported from nutrigonometry_USER_FUNCTIONS.R (self-contained script).
+# Internal helpers -- not exported.
 # ============================================================================
 
 # Point-in-polygon test (ray casting) - vectorised over test points
@@ -19,8 +18,14 @@
   inside
 }
 
-# Angle from origin (in degrees, always positive)
+# Polar angle from the origin (degrees)
 .theta_deg <- function(x, y) atan2(y, x) * 180 / pi
+
+# Point at a given polar angle (degrees) and radius
+.point_at_angle <- function(theta_deg, r) {
+  th <- theta_deg * pi / 180
+  c(x = r * cos(th), y = r * sin(th))
+}
 
 # Build the convex hull polygon of a data frame
 .hull_polygon <- function(data, x_col, y_col) {
@@ -30,12 +35,32 @@
        vertices = data.frame(x = x[idx], y = y[idx]))
 }
 
+# Angular support of a set of intake points: the range of polar angles
+# (degrees) spanned by their convex hull, as seen from the origin. For a
+# convex hull in the positive quadrant this range is attained at the hull
+# vertices. Points at the origin (angle undefined) and non-finite values
+# are dropped.
+.angular_support_xy <- function(x, y) {
+  keep <- is.finite(x) & is.finite(y) & !(x == 0 & y == 0)
+  x <- x[keep]; y <- y[keep]
+  if (length(x) < 3L)
+    stop("Need at least 3 non-origin points to compute the angular support.")
+  idx <- grDevices::chull(x, y)
+  a <- .theta_deg(x[idx], y[idx])
+  c(theta_min = min(a), theta_max = max(a))
+}
+
 # Sample uniformly inside the hull (rejection sampling)
 .sample_in_hull <- function(hx, hy, n = 500) {
   xr <- range(hx); yr <- range(hy)
   out_x <- numeric(n); out_y <- numeric(n)
   filled <- 0L
+  attempts <- 0L
   while (filled < n) {
+    attempts <- attempts + 1L
+    if (attempts > 1000L)
+      stop("Could not sample points inside the design hull; check that it ",
+           "is a non-degenerate polygon.")
     batch <- 5L * (n - filled)
     cx <- stats::runif(batch, xr[1], xr[2])
     cy <- stats::runif(batch, yr[1], yr[2])
@@ -48,51 +73,42 @@
   data.frame(x = out_x, y = out_y)
 }
 
-# NOTE: an earlier lm-only .fit_quadratic()/.locate_optimum() design
-# lived here during development. They are superseded by .fit_surface()
-# (internal-fit.R, which dispatches to lm/glm/lmer) and .locate_optimum()
-# (now in internal-locate-optimum.R, reading coefficients/predictions
-# through the .get_link_coefs()/.predict_link() dispatch layer instead of
-# calling stats::coef()/stats::predict() on a bare lm object directly).
-
-
-# Internal helper: build nominal design matrix for grid-building simulations
-.build_nominal_design <- function(rail_ratios, n_levels, max_total) {
-  total_intakes <- seq(max_total * 0.1, max_total, length.out = n_levels)
-  rows <- list()
-  for (r in rail_ratios) {
-    angle <- atan(r)
-    for (tot in total_intakes) {
-      rows[[length(rows) + 1L]] <- data.frame(
-        id = paste0("r", round(r, 3), "_t", round(tot)),
-        nom_x = tot * cos(angle),
-        nom_y = tot * sin(angle)
-      )
-    }
-  }
-  do.call(rbind, rows)
+# Wilson score interval for a binomial proportion
+.wilson_ci <- function(x, n, conf_level = 0.95) {
+  if (!is.finite(n) || n <= 0) return(c(lower = NA_real_, upper = NA_real_))
+  z <- stats::qnorm(1 - (1 - conf_level) / 2)
+  p <- x / n
+  centre <- (p + z^2 / (2 * n)) / (1 + z^2 / n)
+  half   <- z * sqrt(p * (1 - p) / n + z^2 / (4 * n^2)) / (1 + z^2 / n)
+  c(lower = max(0, centre - half), upper = min(1, centre + half))
 }
 
-# Internal helper: simulate two correlated trait surfaces for grid building
-.simulate_two_surfaces <- function(nominal, cfg, intake_sd, response_sd) {
-  n <- nrow(nominal)
-  x <- pmax(nominal$nom_x + stats::rnorm(n, 0, intake_sd), 0.1)
-  y <- pmax(nominal$nom_y + stats::rnorm(n, 0, intake_sd), 0.1)
-  angle1_rad <- cfg$theta1 * pi / 180
-  angle2_rad <- cfg$theta2 * pi / 180
-  cx1 <- 100 * cos(angle1_rad); cy1 <- 100 * sin(angle1_rad)
-  cx2 <- 100 * cos(angle2_rad); cy2 <- 100 * sin(angle2_rad)
-  z1 <- -(x - cx1)^2 / (50 * cfg$elong1) - (y - cy1)^2 * cfg$elong1 / 50 +
-         stats::rnorm(n, 0, response_sd)
-  z2 <- -(x - cx2)^2 / (50 * cfg$elong2) - (y - cy2)^2 * cfg$elong2 / 50 +
-         stats::rnorm(n, 0, response_sd)
-  data.frame(x = x, y = y, z1 = z1, z2 = z2, id = nominal$id)
+# Generic rail design used by the default (non-design-matched) validation
+# grid: fixed nutrient ratios (rails) x intake levels, one observation per
+# design point.
+.build_rail_design <- function(rail_ratios, n_levels, max_total,
+                               min_total = 15) {
+  out <- do.call(rbind, lapply(seq_along(rail_ratios), function(i) {
+    r <- rail_ratios[i]
+    t_vals <- if (n_levels == 1) max_total else
+      seq(min_total, max_total, length.out = n_levels)
+    data.frame(nominal_x = t_vals / (1 + r), nominal_y = t_vals * r / (1 + r),
+               rail_id = i, level_id = seq_len(n_levels))
+  }))
+  out$design_id <- paste(out$rail_id, out$level_id, sep = "_")
+  out
 }
 
-# With LazyData: true (see DESCRIPTION), nutrigon_validation_grid is
-# lazily bound in the package namespace and available directly -- no
-# data() call needed. get0() with the package's namespace as envir is the
-# standard way to reference it defensively from inside package code.
+.RAIL_RATIOS_DEFAULT <- c(0.1, 0.3, 1, 3, 10)
+
+# Shipped validation grid (generic 5-rail design). The angular support of
+# that design is attached so that nutrigon_check() can warn when it is used
+# for a result from a different design.
 .load_default_validation_grid <- function() {
-  get0("nutrigon_validation_grid", envir = asNamespace("nutrigon"))
+  g <- get0("nutrigon_validation_grid", envir = asNamespace("nutrigon"))
+  if (!is.null(g) && is.null(attr(g, "angular_support")))
+    attr(g, "angular_support") <- c(theta_min = 5.71, theta_max = 84.29)
+  if (!is.null(g) && is.null(attr(g, "grid_design")))
+    attr(g, "grid_design") <- "default_rails"
+  g
 }

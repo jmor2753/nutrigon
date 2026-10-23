@@ -20,14 +20,19 @@
 #'     of a fitted surface.}
 #'   \item{[nutrigon_curvature()]}{Local Gaussian and mean curvature, and a
 #'     surface-area ratio, for a fitted surface.}
-#'   \item{[nutrigon_check()]}{Per-result reliability diagnostic against a
-#'     pre-built validation grid.}
+#'   \item{[nutrigon_check()]}{Design-matched coverage check for one
+#'     result against a validation grid.}
+#'   \item{[nutrigon_equivalence()]}{Equivalence test for alignment of two
+#'     optima (small angles).}
+#'   \item{[nutrigon_matrix()]}{Angular trade-off matrix for N surfaces,
+#'     with joint bootstrap uncertainty and clustering stability.}
 #' }
 #'
 #' @section Utilities:
 #' \describe{
-#'   \item{[nutrigon_build_grid()]}{Build a validation grid from
-#'     simulation.}
+#'   \item{[nutrigon_build_grid()]}{Build a validation grid by simulation,
+#'     on your own design and at your surfaces' signal-to-noise ratio.}
+#'   \item{[nutrigon_snr()]}{Signal-to-noise ratio of a fitted surface.}
 #'   \item{[nutrigon_grid()], [nutrigon_hull()], [nutrigon_region_polygon()]}{
 #'     Plot helpers (require \pkg{ggplot2}).}
 #' }
@@ -55,8 +60,8 @@
 #' American Naturalist}, 201(5), 725-740.
 #'
 #' Morimoto, J. (in review). Bootstrap inference for angular separation
-#' between constrained optima of nutritional ecology response surfaces.
-#' \emph{Environmental and Ecological Statistics}.
+#' between nutritional optima in the Geometric Framework for Nutrition.
+#' \emph{Methods in Ecology and Evolution}.
 #'
 #' @keywords internal
 "_PACKAGE"

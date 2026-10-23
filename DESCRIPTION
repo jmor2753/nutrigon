@@ -6,41 +6,30 @@ Description: Fits response surfaces (ordinary least squares, generalized
     linear models with any family including quasi-families, or linear
     mixed-effects models) to trait data collected under the Geometric
     Framework for Nutrition and computes the angular separation (theta)
-    between the nutritional optima of two traits, with bootstrap confidence
-    intervals. Provides local Gaussian and mean curvature and a surface-area
-    ratio for a fitted surface, and a simulation-based per-result
-    reliability diagnostic that compares a given result's risk-factor
-    profile (curvature elongation, distance to the angular boundary of the
-    design, and angular separation) against a pre-built validation grid of
-    configurations with known ground-truth bootstrap coverage. Includes the
-    Drosophila lifespan and fecundity dataset of Lee et al. (2008)
-    "Lifespan and reproduction in Drosophila: new insights from nutritional
-    geometry" <doi:10.1073/pnas.0710787105> as a worked example. Methods
-    are described in Morimoto (2023) "Nutrigonometry I: using right-angle
-    triangles to quantify nutritional trade-offs in performance landscapes"
-    <doi:10.1086/723599>.
+    between the nutritional optima of two traits, with percentile
+    bootstrap confidence intervals that propagate surface-estimation
+    uncertainty (case or stratified resampling; paired or unpaired).
+    Provides a design-matched coverage check that simulates validation
+    configurations on the user's own design and at the signal-to-noise
+    ratio of the fitted surfaces, an equivalence test for alignment of
+    optima, local Gaussian and mean curvature, and a surface-area ratio.
+    Includes the Drosophila lifespan and fecundity dataset of Lee et al.
+    (2008) "Lifespan and reproduction in Drosophila: new insights from
+    nutritional geometry" <doi:10.1073/pnas.0710787105> as a worked
+    example. The angular approach was introduced in Morimoto (2023)
+    "Nutrigonometry I: using right-angle triangles to quantify nutritional
+    trade-offs in performance landscapes" <doi:10.1086/723599>.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Depends: R (>= 4.1)
-Imports:
-    stats,
-    grDevices,
-    withr
-Suggests:
-    ggplot2,
-    ggdendro,
-    ggrepel,
-    patchwork,
-    knitr,
-    rmarkdown,
-    testthat (>= 3.0.0),
-    lme4,
-    lmerTest,
-    pracma
+Imports: stats, grDevices, withr
+Suggests: ggplot2, ggdendro, ggrepel, patchwork, knitr, rmarkdown,
+        testthat (>= 3.0.0), lme4, lmerTest, pracma
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 URL: https://github.com/jmor2753/nutrigon
 BugReports: https://github.com/jmor2753/nutrigon/issues
+NeedsCompilation: no

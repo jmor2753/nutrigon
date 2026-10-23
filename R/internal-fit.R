@@ -1,9 +1,8 @@
 # ============================================================================
 # internal-fit.R
 #
-# Generalized model-fitting layer for nutrigon_fit(). Replaces the previous
-# lm()-only .fit_quadratic() with a dispatcher that also supports glm() (any
-# family, including quasi-families) and lme4::lmer().
+# Model-fitting layer for nutrigon_fit(): a dispatcher supporting lm(),
+# glm() (any family, including quasi-families) and lmerTest::lmer().
 #
 # DESIGN NOTE (read before touching this file):
 # -----------------------------------------------------------------------
@@ -47,11 +46,13 @@
 
 
 # ============================================================================
-# .fit_surface(): dispatcher. Replaces the old .fit_quadratic().
+# .fit_surface(): dispatcher.
 # ============================================================================
 
+#' Fit the quadratic surface (internal dispatcher)
+#'
 #' @param data       Data frame.
-#' @param x_col,y_col,z_col  Column names (as in .fit_quadratic()).
+#' @param x_col,y_col,z_col  Column names .
 #' @param model_type One of "lm", "glm", "lmer".
 #' @param re_formula For model_type = "lmer" only: the random-effects part
 #'                    of the formula, as a raw string starting with "+",
@@ -77,6 +78,7 @@
 #'   NOT the raw lm/glm/lmer object directly -- callers should never call
 #'   stats::coef()/stats::predict() on it themselves; always go through
 #'   .get_link_coefs() / .predict_link().
+#' @noRd
 .fit_surface <- function(data, x_col, y_col, z_col,
                           model_type = c("lm", "glm", "lmer"),
                           re_formula = NULL,
@@ -207,8 +209,7 @@
 }
 
 .get_link_coefs.nutrigon_lmer_fit <- function(model_obj) {
-  # lme4 is a hard Import (see DESCRIPTION); no requireNamespace() guard
-  # needed.
+  # lme4 availability is checked in .fit_surface() before an lmer fit.
   lme4::fixef(model_obj$fit)
 }
 

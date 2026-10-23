@@ -99,16 +99,18 @@ for (nm in names(surfaces)) {
 ```
 
 Each pairwise comparison was then run with `nutrigon_compare(...,
-paired = FALSE, B = 200)`:
+paired = FALSE, resample = "stratified", B = 200)` (resampling within
+design points, since each diet has several replicate vials or flies):
 
 ```{r pairwise-code, eval = FALSE}
 res <- nutrigon_compare(
   raw_i, "Prot", "Carb", z_i,
   raw_j, "Prot", "Carb", z_j,
   design_id_col1 = "design_id", design_id_col2 = "design_id",
-  paired = FALSE,
-  B      = 200,
-  seed   = pair_id
+  paired   = FALSE,
+  resample = "stratified",
+  B        = 200,
+  seed     = pair_id
 )
 ```
 
@@ -179,6 +181,7 @@ if (requireNamespace("ggdendro", quietly = TRUE)) {
 ```
 
 ```{r mds-plot, eval = requireNamespace("ggplot2", quietly = TRUE) && requireNamespace("ggrepel", quietly = TRUE)}
+library(ggplot2)
 mds_df <- data.frame(
   surface = rownames(Theta_matrix),
   mds1    = mds$points[, 1],
@@ -243,6 +246,7 @@ ov$hulls$population     <- factor(ov$hulls$population,   levels = POPS)
 ```
 
 ```{r overlay-plot, eval = requireNamespace("ggplot2", quietly = TRUE)}
+library(ggplot2)
 TRAIT_COLS <- c("Viability" = "#E69F00", "Wing size" = "#009E73")
 
 ggplot() +
@@ -314,9 +318,40 @@ matrix above, at the cost of re-running the ~66-comparison bootstrap. That
 full refit is not included here to keep the vignette fast to build; the
 single-surface comparison above illustrates the mechanics.
 
+## Joint uncertainty across the matrix
+
+Pairwise intervals from separate `nutrigon_compare()` calls are marginal:
+they do not carry the dependence among entries that share a surface.
+`nutrigon_matrix()` bootstraps each surface once and uses the same
+replicate index in every pair, so each replicate is a complete matrix and
+any summary (e.g. a dendrogram) can be given bootstrap uncertainty. It
+also returns the ordering of the optimum angles; with two nutrients the
+matrix is one-dimensional, so this ordering carries all of its
+information. The analysis in the paper (survival as a quasi-binomial GLM)
+corresponds to:
+
+```{r matrix-code, eval = FALSE}
+specs <- list()
+for (temp in TEMPS) for (pop in POPS) {
+  s <- zanco_survival[zanco_survival$Temperature == temp &
+                        zanco_survival$Population == pop, ]
+  w <- zanco_wingsize[zanco_wingsize$Temperature == temp &
+                        zanco_wingsize$Population == pop, ]
+  specs[[paste("survival", temp, pop, sep = "_")]] <- list(
+    data = s, x_col = "Prot", y_col = "Carb", z_col = "Prop_viable",
+    model_type = "glm", family = quasibinomial(), design_id_col = "design_id")
+  specs[[paste("wingsize", temp, pop, sep = "_")]] <- list(
+    data = w, x_col = "Prot", y_col = "Carb", z_col = "WingSize",
+    design_id_col = "design_id")
+}
+m <- nutrigon_matrix(specs, B = 200, resample = "stratified", seed = 2025)
+m$clustering$stability
+```
+
 ## Headline strip chart
 
 ```{r headline-plot, eval = requireNamespace("ggplot2", quietly = TRUE)}
+library(ggplot2)
 headline$pop_f  <- factor(headline$population_1, levels = POPS)
 headline$temp_f <- factor(headline$temp_label,   levels = temp_order)
 
@@ -348,5 +383,5 @@ across locally-adapted populations. *Journal of Insect Physiology*, 163,
 104815.
 
 Morimoto, J. (in review). Bootstrap inference for angular separation
-between constrained optima of nutritional ecology response surfaces.
-*Environmental and Ecological Statistics*.
+between nutritional optima in the Geometric Framework for Nutrition.
+*Methods in Ecology and Evolution*.

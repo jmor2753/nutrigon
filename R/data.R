@@ -34,13 +34,15 @@
 "lee_drosophila"
 
 
-#' Pre-built validation grid (seed = 2025)
+#' Pre-built generic validation grid (seed = 2025)
 #'
-#' A validation grid built by [nutrigon_build_grid()]-equivalent simulation
-#' with `seed = 2025`, provided so that [nutrigon_check()] can be used
-#' immediately without waiting for a fresh simulation. See
-#' [nutrigon_build_grid()] for the meaning of each column and the
-#' simulation design used to construct it.
+#' A validation grid simulated on a generic 5-rail design (angular support
+#' 5.71-84.29 degrees) with `seed = 2025`, so that [nutrigon_check()] can
+#' be tried immediately. It was built with nutrigon 0.1.0 and does not
+#' match any particular experiment: for applied results, build a
+#' design-matched grid with
+#' `nutrigon_build_grid(design = your_data, snr = ...)`. [nutrigon_check()]
+#' warns when this grid's angular support differs from that of the result.
 #'
 #' @format A data frame with 1000 rows and columns:
 #' \describe{

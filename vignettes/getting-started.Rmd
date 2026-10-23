@@ -26,8 +26,10 @@ with this package. It walks through the core workflow:
    nutritional optimum for each trait.
 2. `nutrigon_compare()` -- bootstrap the angular separation between the two
    optima.
-3. `nutrigon_elongation()` and `nutrigon_check()` -- assess whether the
-   result resembles configurations that validated well in simulation.
+3. `nutrigon_snr()`, `nutrigon_build_grid()` and `nutrigon_check()` --
+   estimate the coverage expected for this result from simulations matched
+   to its design and signal-to-noise ratio.
+4. `nutrigon_equivalence()` -- test whether two optima are aligned.
 
 The Lee dataset records nutrient intake, lifespan, and daily egg production
 for female *Drosophila melanogaster* reared across a geometric array of
@@ -62,43 +64,81 @@ print(fit_eggs)
 result_lee <- nutrigon_compare(
   lee_drosophila, "protein_eaten", "carb_eaten", "lifespan",
   lee_drosophila, "protein_eaten", "carb_eaten", "dailyeggs",
-  design_id_col1 = "treatment", design_id_col2 = "treatment",
-  paired = TRUE,
+  paired = TRUE,      # both traits measured on the same flies
+  resample = "case",  # case resampling (the validated scheme)
   B      = 500,
   seed   = 1
 )
 print(result_lee)
+result_lee$point1            # location of the lifespan optimum
+result_lee$angular_support   # angular range of each design hull
 ```
 
 The point estimate and confidence interval should closely match the
 published result: theta = 20.51 degrees, 95% CI [10.99, 26.14].
 
-## Reliability diagnostic
+Theta is the difference in nutrient balance (protein:carbohydrate
+direction) between the two optima. It does not measure how far apart
+they are in total intake, nor the fitness cost of feeding between them,
+so report it together with the locations of the optima.
 
-`nutrigon_check()` compares this result's risk-factor profile (curvature
-elongation, distance to the angular boundary of the design, and angular
-separation) against a validation grid of simulated configurations with
-known ground-truth bootstrap coverage. By default it uses the grid shipped
-with the package, `nutrigon_validation_grid` (`seed = 2025`, 1000
-configurations) -- this is fast, since no simulation is run:
+## Design-matched coverage check
 
-```{r reliability}
-check_lee <- nutrigon_check(
-  result = result_lee,
-  elong1 = nutrigon_elongation(fit_lifespan),
-  elong2 = nutrigon_elongation(fit_eggs),
-  k      = 10
-)
+`nutrigon_check()` estimates the coverage expected for this interval from
+simulated configurations that resemble it in three risk factors
+(curvature elongation, distance of each optimum from the edge of its
+design's angular support, and angle difference). The validation grid
+should be simulated on **your own design** and at the **signal-to-noise
+ratio** of your fitted surfaces:
 
-cat(check_lee$flag, "\n")
-cat(sprintf(
-  "Estimated coverage from %d nearest neighbours: %.1f%%\n",
-  check_lee$n_neighbours, check_lee$estimated_coverage * 100
-))
+```{r snr}
+snr <- c(lifespan = nutrigon_snr(fit_lifespan), eggs = nutrigon_snr(fit_eggs))
+snr
 ```
 
-This is a diagnostic only -- it does not change the confidence interval
-above.
+Building the grid is slow (100 configurations x 20 simulated datasets x
+50 bootstrap replicates); build it once and save it.
+
+```{r grid, eval = FALSE}
+grid_lee <- nutrigon_build_grid(
+  design = lee_drosophila, x_col = "protein_eaten", y_col = "carb_eaten",
+  design_id_col = "treatment", snr = unname(snr), seed = 99)
+saveRDS(grid_lee, "grid_lee.rds")
+
+check_lee <- nutrigon_check(
+  result_lee,
+  elong1 = nutrigon_elongation(fit_lifespan),
+  elong2 = nutrigon_elongation(fit_eggs),
+  validation_grid = grid_lee, k = 10)
+check_lee
+```
+
+For a quick look, the generic grid shipped with the package can be used;
+`nutrigon_check()` warns that it was simulated on a different design:
+
+```{r reliability}
+check_generic <- nutrigon_check(
+  result_lee,
+  elong1 = nutrigon_elongation(fit_lifespan),
+  elong2 = nutrigon_elongation(fit_eggs))
+check_generic
+```
+
+The check is a diagnostic: it does not change the confidence interval.
+It assumes quadratic surfaces with Gaussian noise and does not account
+for model misspecification.
+
+## Small angles and alignment
+
+Near zero, the unsigned interval lies above zero even when the true
+separation is zero, so it cannot show that two optima are aligned.
+`nutrigon_check()` does not assess results below 5 degrees; use an
+equivalence test with a smallest angle of biological interest, chosen in
+advance:
+
+```{r equivalence}
+nutrigon_equivalence(result_lee, delta = 10)
+```
 
 ## Plotting the surfaces
 
@@ -177,5 +217,5 @@ reproduction in *Drosophila*: new insights from nutritional geometry.
 *PNAS*, 105(7), 2498-2503.
 
 Morimoto, J. (in review). Bootstrap inference for angular separation
-between constrained optima of nutritional ecology response surfaces.
-*Environmental and Ecological Statistics*.
+between nutritional optima in the Geometric Framework for Nutrition.
+*Methods in Ecology and Evolution*.

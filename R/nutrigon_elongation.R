@@ -1,23 +1,10 @@
 # ============================================================================
-# elongation-generalized.R
+# nutrigon_elongation.R
 #
-# Updated nutrigon_elongation() -- the real one, as pasted. Only ONE line
-# changes from the original: `cf <- stats::coef(mod)` becomes
-# `cf <- .get_link_coefs(mod)`, routed through the same dispatch layer as
-# everywhere else. This is deliberately still accepting either a
-# "nutrigon_fit" object OR a raw model object directly, matching the
-# original function's contract -- but "raw model object" now means a
-# nutrigon_*_fit wrapper (nutrigon_lm_fit/nutrigon_glm_fit/nutrigon_lmer_fit)
-# rather than a bare lm object, since that's what fit$model now is.
-#
-# BREAKING CHANGE relative to the previous version: passing a bare lm()
-# object built OUTSIDE nutrigon_fit() (as the old docs example/param text
-# technically allowed: "or an lm object from a quadratic fit...") no longer
-# works directly, because .get_link_coefs() dispatches on the wrapper
-# class, not on "lm". If you need to elongation-check a bare lm object you
-# built by hand, wrap it first: structure(list(fit = your_lm),
-# class = "nutrigon_lm_fit"). This is documented below; flagging here in
-# case it affects any existing user code or vignette examples.
+# Elongation ratio from the Hessian of the fitted (link-scale) quadratic.
+# Accepts a "nutrigon_fit" object or its $model wrapper. A bare lm object
+# built outside nutrigon_fit() must first be wrapped:
+#   structure(list(fit = your_lm), class = "nutrigon_lm_fit")
 # ============================================================================
 
 #' Curvature elongation ratio of a fitted quadratic surface
